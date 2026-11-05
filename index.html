@@ -136,8 +136,9 @@ a { color: inherit; }
 .perf span { position: absolute; left: 20px; right: 20px; top: 10px; border-top: 2px dashed var(--ticket-line); }
 .t-rows { padding: 4px 20px 18px; display: flex; flex-direction: column; gap: 10px; }
 .t-rows.divided { margin: 4px 20px 0; padding: 14px 0 18px; border-top: 1px solid var(--ticket-line); }
-.t-row { display: flex; align-items: center; gap: 8px 12px; min-height: 44px; flex-wrap: wrap; }
-.t-who { flex: 1 1 90px; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.t-row { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.t-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.t-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .t-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-meta { font-size: 12.5px; color: var(--ticket-muted); }
 .t-val { flex: none; font-size: 15px; }
@@ -843,7 +844,7 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
       else if (settled) btn = '<button type="button" class="t-paid" id="settle-' + r.id + '" data-act="settle" data-id="' + r.id + '" aria-label="Скасувати: ' + esc(r.name) + ', ще не віддано">' + ICON.check + '<span>Віддано</span></button>';
       return '<div class="t-row"><span class="avatar ' + slotCls(r.slot) + '" aria-hidden="true">' + esc(r.av) + '</span>' +
         '<div class="t-who"><span class="t-name">' + esc(r.name) + '</span><span class="t-meta">' + esc(meta) + '</span></div>' +
-        '<span class="t-val num">' + val + '</span>' + btn + '</div>';
+        '<div class="t-side"><span class="t-val num">' + val + '</span>' + btn + '</div></div>';
     }).join('');
     var busRow = st.busTrips ? '<div class="t-row t-bus"><span class="avatar bus" aria-hidden="true">' + ICON.busSm + '</span>' +
       '<div class="t-who"><span class="t-name">Маршрутка</span><span class="t-meta">' + trips(st.busTrips) + ' · свої витрати</span></div>' +
