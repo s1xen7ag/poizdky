@@ -10,6 +10,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Поїздки">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2316181D'/%3E%3Cpath d='M14 38l4-12a4 4 0 0 1 4-3h20a4 4 0 0 1 4 3l4 12v8H14z' fill='none' stroke='%23F2A33A' stroke-width='4' stroke-linejoin='round'/%3E%3Ccircle cx='22' cy='46' r='4' fill='%23FFFFFF'/%3E%3Ccircle cx='42' cy='46' r='4' fill='%23FFFFFF'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,6 +79,7 @@
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 25; background: var(--bg); }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button:disabled, input:disabled { cursor: default; }
@@ -329,6 +333,7 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
     pencil: '<svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.2" ' + SVG + '><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg>',
     trash: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
     plus: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2.4" ' + SVG + '><path d="M12 5v14M5 12h14"/></svg>',
+    phone: '<svg width="20" height="20" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
     github: '<svg width="20" height="20" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>'
   };
 
@@ -948,6 +953,49 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
     return html;
   }
 
+  /* ---------- install to home screen ---------- */
+  var installEvt = null;
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  }
+  function isIOS() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    installEvt = e;
+    if (state.tab === 'people') scheduleRender();
+  });
+  window.addEventListener('appinstalled', function () {
+    installEvt = null;
+    toast('Значок додано на головний екран');
+    if (state.tab === 'people') scheduleRender();
+  });
+  function installCard() {
+    if (isStandalone()) return '';
+    var body;
+    if (installEvt) {
+      body = '<p class="hint">Зʼявиться значок «Поїздки», і застосунок відкриватиметься окремо, без панелі браузера.</p>' +
+        '<button type="button" class="btn-ink" id="install" data-act="install">Встановити</button>';
+    } else if (isIOS()) {
+      body = '<ol class="steps">' +
+        '<li>Відкрий цю сторінку в <b>Safari</b>.</li>' +
+        '<li>Натисни <b>Поділитися</b> (квадрат зі стрілкою вгору).</li>' +
+        '<li>Вибери <b>На початковий екран</b> і натисни <b>Додати</b>.</li>' +
+        '</ol>' +
+        '<p class="hint">Потім відкривай застосунок зі значка й підключи GitHub ще раз: на iPhone застосунок зі значка має окреме сховище, і токен із Safari туди не переходить.</p>';
+    } else {
+      body = '<ol class="steps">' +
+        '<li>Відкрий меню браузера (три крапки).</li>' +
+        '<li>Вибери <b>Встановити застосунок</b> або <b>Додати на головний екран</b>.</li>' +
+        '</ol>';
+    }
+    return '<section class="card" aria-labelledby="inst-title">' +
+      '<div class="card-head"><span class="avatar big busc" aria-hidden="true">' + ICON.phone + '</span>' +
+      '<div class="who"><span class="kicker">На телефоні</span><h2 class="card-title" id="inst-title">Значок на екрані</h2></div></div>' +
+      body + '</section>';
+  }
+
   function viewPeople() {
     var s = state.settings;
     var html = '<header class="page-head"><h1>Люди і ціни</h1><p>Ціна підставляється сама, коли обираєш, з ким їдеш. Суму за окремий день можна змінити, якщо натиснути на неї.</p></header>';
@@ -997,6 +1045,7 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
     html += '<label class="choice solo' + (s.weekend ? ' on' : '') + '" for="weekend"><input type="checkbox" id="weekend"' + (s.weekend ? ' checked' : '') + '>' +
       '<span><strong>Показувати суботу й неділю</strong><small>Якщо їздиш і у вихідні.</small></span></label>';
 
+    html += installCard();
     html += syncCard();
     return html;
   }
@@ -1180,6 +1229,13 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
       case 'sync-now': pull(); break;
       case 'disconnect': disconnect(); break;
       case 'download': downloadCopy(); break;
+      case 'install':
+        if (installEvt) {
+          var ev = installEvt;
+          ev.prompt();
+          ev.userChoice.then(function () { installEvt = null; render(); }, function () { installEvt = null; render(); });
+        }
+        break;
     }
   });
 
@@ -1232,6 +1288,10 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
   loadLocal();
   render();
   if (gh) pull();
+
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
 })();
 </script>
 </body>
