@@ -1,0 +1,1238 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Трекер поїздок</title>
+<meta name="description" content="Тижневий облік поїздок з одногрупниками: хто возив, скільки віддати і коли їхав маршруткою.">
+<meta name="theme-color" content="#EEF0F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1013" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Поїздки">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2316181D'/%3E%3Cpath d='M14 38l4-12a4 4 0 0 1 4-3h20a4 4 0 0 1 4 3l4 12v8H14z' fill='none' stroke='%23F2A33A' stroke-width='4' stroke-linejoin='round'/%3E%3Ccircle cx='22' cy='46' r='4' fill='%23FFFFFF'/%3E%3Ccircle cx='42' cy='46' r='4' fill='%23FFFFFF'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: one phone-width column (max 480px) with page scroll and a fixed bottom tab bar; each week opens with a dark "ticket" summary torn from the day list. */
+:root {
+  --bg: #EEF0F3;
+  --card: #FFFFFF;
+  --ink: #16181D;
+  --muted: #5B616B;
+  --line: #D5D9DF;
+  --soft: #F1F3F6;
+  --today: #16181D;
+  --focus: #2453E0;
+  --ticket: #16181D;
+  --ticket-ink: #FFFFFF;
+  --ticket-muted: #A4AAB4;
+  --ticket-line: #2E333B;
+  --ticket-btn: #FFFFFF;
+  --ticket-btn-ink: #16181D;
+  --good: #1C7C4A;
+  --owe: #9A5B00;
+  --good-t: #5BD39A;
+  --good-t-bg: #1F3A2D;
+  --good-t-line: #2F6B4E;
+  --owe-t: #F2A33A;
+  --danger: #B42318;
+  --danger-on: #FFFFFF;
+  --d1: #2453E0; --d1-on: #FFFFFF; --d1-letter: #2453E0;
+  --d2: #F2A33A; --d2-on: #16181D; --d2-letter: #16181D;
+  --d3: #0E7A67; --d3-on: #FFFFFF; --d3-letter: #0E7A67;
+  --d4: #8A4FD6; --d4-on: #FFFFFF; --d4-letter: #8A4FD6;
+  --dx: #6B727C; --dx-on: #FFFFFF;
+  --avatar-sel: #FFFFFF;
+  --bus: #16181D;
+  --bus-on: #FFFFFF;
+  --none-bg: #DFE2E6;
+  --none-line: #8A9099;
+  --f-display: "Unbounded", "Manrope", system-ui, sans-serif;
+  --f-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1013; --card: #1A1D22; --ink: #EEF0F3; --muted: #A1A8B2; --line: #31363E; --soft: #262A31; --today: #EEF0F3; --focus: #8FA9FF;
+    --ticket: #262B33; --ticket-ink: #FFFFFF; --ticket-muted: #AEB4BE; --ticket-line: #3A404A; --ticket-btn: #FFFFFF; --ticket-btn-ink: #16181D;
+    --good: #4CC38A; --owe: #F2A33A; --good-t: #5BD39A; --good-t-bg: #1F3A2D; --good-t-line: #2F6B4E; --owe-t: #F2A33A;
+    --danger: #FF8A80; --danger-on: #16181D;
+    --bus: #EEF0F3; --bus-on: #16181D; --none-bg: #30353D; --none-line: #6B727C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1013; --card: #1A1D22; --ink: #EEF0F3; --muted: #A1A8B2; --line: #31363E; --soft: #262A31; --today: #EEF0F3; --focus: #8FA9FF;
+  --ticket: #262B33; --ticket-ink: #FFFFFF; --ticket-muted: #AEB4BE; --ticket-line: #3A404A; --ticket-btn: #FFFFFF; --ticket-btn-ink: #16181D;
+  --good: #4CC38A; --owe: #F2A33A; --good-t: #5BD39A; --good-t-bg: #1F3A2D; --good-t-line: #2F6B4E; --owe-t: #F2A33A;
+  --danger: #FF8A80; --danger-on: #16181D;
+  --bus: #EEF0F3; --bus-on: #16181D; --none-bg: #30353D; --none-line: #6B727C;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:disabled, input:disabled { cursor: default; }
+:focus-visible { outline: 2.5px solid var(--focus); outline-offset: 2px; }
+h1, h2, h3, p, ol { margin: 0; }
+a { color: inherit; }
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(4px + env(safe-area-inset-top, 0px)) calc(104px + env(safe-area-inset-bottom, 0px));
+}
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.num { font-family: var(--f-display); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* Week header */
+.top { display: flex; align-items: center; gap: 8px; padding-block: 16px 6px; }
+.round-btn { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); display: grid; place-items: center; }
+.top-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
+.week-title { font-family: var(--f-display); font-size: 17px; font-weight: 600; text-wrap: balance; }
+.back-today { align-self: center; min-height: 44px; padding: 0 18px; border-radius: 999px; border: none; background: var(--soft); font-size: 13px; font-weight: 700; }
+
+/* Prompts */
+.setup { background: var(--card); border: 1.5px dashed var(--line); border-radius: 20px; padding: 14px 14px 14px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.setup.warn { border-style: solid; border-color: var(--owe); }
+.setup-text { flex: 1 1 200px; min-width: 0; }
+.setup strong { display: block; font-size: 15px; font-weight: 800; }
+.setup p { margin-top: 3px; font-size: 13px; color: var(--muted); }
+.btn-ink { min-height: 44px; padding: 0 18px; border-radius: 999px; border: none; background: var(--ink); color: var(--bg); font-size: 14px; font-weight: 800; }
+.btn-ghost { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent; color: var(--ink); font-size: 14px; font-weight: 700; }
+.btn-danger { min-height: 44px; padding: 0 16px; border-radius: 999px; border: none; background: var(--danger); color: var(--danger-on); font-size: 14px; font-weight: 800; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.link-btn { align-self: flex-start; min-height: 44px; padding: 0; border: none; background: none; color: var(--ink); font-size: 13px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Ticket summary */
+.ticket { background: var(--ticket); color: var(--ticket-ink); border-radius: 22px; overflow: hidden; }
+.t-top { padding: 18px 20px 10px; display: flex; flex-direction: column; gap: 6px; }
+.ticket .kicker { color: var(--ticket-muted); }
+.t-amount-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.t-amount { font-size: 36px; line-height: 1.15; }
+.badge-good { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--good-t-bg); color: var(--good-t); font-size: 13px; font-weight: 800; }
+.t-sub { font-size: 13px; color: var(--ticket-muted); }
+.t-note { font-size: 13px; font-weight: 700; }
+.t-note.owe { color: var(--owe-t); }
+.t-note.good { color: var(--good-t); }
+.t-carry { align-self: flex-start; min-height: 44px; padding: 0; border: none; background: none; color: var(--owe-t); font-size: 13px; font-weight: 800; text-align: left; }
+.perf { position: relative; height: 22px; }
+.perf::before, .perf::after { content: ""; position: absolute; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--bg); }
+.perf::before { left: -11px; }
+.perf::after { right: -11px; }
+.perf span { position: absolute; left: 20px; right: 20px; top: 10px; border-top: 2px dashed var(--ticket-line); }
+.t-rows { padding: 4px 20px 18px; display: flex; flex-direction: column; gap: 10px; }
+.t-rows.divided { margin: 4px 20px 0; padding: 14px 0 18px; border-top: 1px solid var(--ticket-line); }
+.t-row { display: flex; align-items: center; gap: 8px 12px; min-height: 44px; flex-wrap: wrap; }
+.t-who { flex: 1 1 90px; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.t-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-meta { font-size: 12.5px; color: var(--ticket-muted); }
+.t-val { flex: none; font-size: 15px; }
+.t-val.dim { color: var(--ticket-muted); }
+.t-pay { flex: none; min-height: 44px; padding: 0 14px; border-radius: 999px; border: none; background: var(--ticket-btn); color: var(--ticket-btn-ink); font-size: 13px; font-weight: 800; }
+.t-paid { flex: none; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--good-t-line); background: transparent; color: var(--good-t); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; }
+.t-bus { border-top: 1px solid var(--ticket-line); padding-top: 10px; }
+
+.avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--dc); color: var(--dc-on); display: grid; place-items: center; font-size: 14px; font-weight: 800; }
+.avatar.big { width: 40px; height: 40px; font-size: 17px; }
+.avatar.bus { background: var(--ticket-line); color: var(--ticket-ink); }
+.avatar.busc { background: var(--bus); color: var(--bus-on); }
+.c0 { --dc: var(--d1); --dc-on: var(--d1-on); --dc-letter: var(--d1-letter); }
+.c1 { --dc: var(--d2); --dc-on: var(--d2-on); --dc-letter: var(--d2-letter); }
+.c2 { --dc: var(--d3); --dc-on: var(--d3-on); --dc-letter: var(--d3-letter); }
+.c3 { --dc: var(--d4); --dc-on: var(--d4-on); --dc-letter: var(--d4-letter); }
+.cx { --dc: var(--dx); --dc-on: var(--dx-on); --dc-letter: var(--dx); }
+
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px 4px 0; flex-wrap: wrap; }
+.sec-head span { font-size: 13px; color: var(--muted); }
+
+/* Day cards */
+.day { background: var(--card); border: 1.5px solid transparent; border-radius: 20px; padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 12px; }
+.day.is-today { border-color: var(--today); }
+.day-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.day-info { min-width: 0; }
+.day-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.day-title h3 { font-size: 16px; font-weight: 800; }
+.today-badge { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; background: var(--today); color: var(--card); padding: 3px 8px; border-radius: 999px; }
+.day-date { display: block; margin-top: 3px; font-size: 13px; color: var(--muted); }
+.day-sum { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
+.amt-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: -8px -6px -6px 0; padding: 0 6px; border: none; border-radius: 10px; background: none; color: var(--ink); font-size: 16px; }
+.amt-btn svg { color: var(--muted); }
+.amt-static { font-size: 16px; color: var(--muted); line-height: 30px; margin-top: -2px; }
+.cap { font-size: 12px; font-weight: 700; color: var(--muted); }
+.cap.owe { color: var(--owe); }
+.cap.good { color: var(--good); }
+
+.opts { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 6px; }
+.opt { min-width: 0; height: 64px; padding: 6px 4px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 12.5px; font-weight: 700; transition: background-color 120ms ease, border-color 120ms ease; }
+.opt .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opt .av { width: 24px; height: 24px; border-radius: 50%; background: var(--dc); color: var(--dc-on); display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+.opt.drv[aria-pressed="true"] { background: var(--dc); border-color: var(--dc); color: var(--dc-on); }
+.opt.drv[aria-pressed="true"] .av { background: var(--avatar-sel); color: var(--dc-letter); }
+.opt.bus[aria-pressed="true"] { background: var(--bus); border-color: var(--bus); color: var(--bus-on); }
+.opt.none { color: var(--muted); }
+.opt.none[aria-pressed="true"] { background: var(--none-bg); border-color: var(--none-line); color: var(--ink); }
+@media (hover: hover) { .opt:not([aria-pressed="true"]):hover { border-color: var(--muted); } }
+@media (max-width: 360px) { .opt { font-size: 11.5px; } }
+
+.trip { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.pill { min-height: 44px; padding: 0 14px; border-radius: 999px; border: none; background: var(--soft); color: var(--ink); display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; }
+.check { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 4px 0 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.check input { width: 20px; height: 20px; margin: 0; accent-color: var(--good); cursor: pointer; }
+.note { font-size: 13px; font-weight: 600; color: var(--muted); }
+
+.edit { display: flex; flex-direction: column; gap: 6px; }
+.edit > label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.edit-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.edit-row .btn-ink, .edit-row .btn-ghost { min-height: 48px; border-radius: 12px; }
+.money { position: relative; display: block; min-width: 0; }
+.edit-row .money { flex: 1 1 110px; }
+.field input, .money input { width: 100%; height: 48px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--soft); color: var(--ink); font-size: 16px; font-weight: 600; }
+.money input { padding-right: 34px; font-family: var(--f-display); }
+.field input:focus-visible, .money input:focus-visible { border-color: var(--focus); outline-offset: 0; }
+.money .cur { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 16px; font-weight: 700; color: var(--muted); pointer-events: none; }
+input::placeholder { color: var(--muted); opacity: 0.8; }
+
+/* Page heads and cards (history, people) */
+.page-head { padding-block: 22px 8px; }
+.page-head h1 { font-family: var(--f-display); font-size: 24px; font-weight: 600; text-wrap: balance; }
+.page-head p { margin-top: 6px; font-size: 14px; color: var(--muted); max-width: 42ch; }
+.card { background: var(--card); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.card-head { display: flex; align-items: center; gap: 12px; }
+.card-head .who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.card-title { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-h2 { font-size: 17px; font-weight: 800; }
+.icon-btn { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; border: none; background: var(--soft); color: var(--muted); display: grid; place-items: center; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.field { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.field > span:first-child { font-size: 13px; font-weight: 700; color: var(--muted); }
+.readout { height: 48px; display: flex; align-items: center; padding: 0 12px; border-radius: 12px; background: var(--soft); font-size: 16px; }
+.hint { font-size: 13px; color: var(--muted); }
+.hint.err { color: var(--danger); font-weight: 700; }
+.confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px; border-radius: 14px; background: var(--soft); font-size: 13px; font-weight: 600; }
+.confirm span { flex: 1 1 170px; }
+.add-btn { min-height: 52px; border-radius: 20px; border: 1.5px dashed var(--line); background: transparent; color: var(--ink); font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.choice { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 14px; border: 1.5px solid var(--line); cursor: pointer; }
+.choice.on { border-color: var(--ink); background: var(--soft); }
+.choice.solo { background: var(--card); border-color: transparent; border-radius: 20px; padding: 16px; }
+.choice input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--ink); cursor: pointer; }
+.choice strong { display: block; font-size: 15px; font-weight: 800; }
+.choice small { display: block; margin-top: 3px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+
+/* Sync */
+.sync-line { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.sync-line::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.sync-line.ok { color: var(--good); }
+.sync-line.ok::before { background: var(--good); }
+.sync-line.busy::before { background: var(--focus); }
+.sync-line.err { color: var(--danger); }
+.sync-line.err::before { background: var(--danger); }
+.sync-foot { padding: 6px 4px 0; justify-content: center; }
+.steps { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.steps b { color: var(--ink); }
+details.how summary { min-height: 44px; display: flex; align-items: center; font-size: 13px; font-weight: 800; cursor: pointer; }
+
+.wk { width: 100%; text-align: left; background: var(--card); border: 1.5px solid transparent; border-radius: 18px; padding: 14px 12px 14px 16px; display: flex; align-items: center; gap: 12px; color: var(--ink); }
+.wk.is-open { border-color: var(--ink); }
+.wk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.wk-label { font-size: 16px; font-weight: 800; }
+.wk-break { font-size: 13px; color: var(--muted); }
+.wk-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.wk-total { font-size: 16px; }
+.wk svg { flex: none; color: var(--muted); }
+.st { font-size: 12px; font-weight: 800; color: var(--muted); }
+.st.good { color: var(--good); }
+.st.owe { color: var(--owe); }
+.empty { background: var(--card); border-radius: 20px; padding: 24px 18px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.empty strong { font-size: 16px; font-weight: 800; }
+.empty p { font-size: 14px; color: var(--muted); max-width: 32ch; }
+.empty .btn-ink { margin-top: 6px; }
+
+/* Tab bar */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: var(--card); border-top: 1px solid var(--line);
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+}
+.tabs { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.tab { height: 56px; padding: 0; border: none; border-radius: 14px; background: transparent; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; }
+.tab .ic { width: 56px; height: 28px; border-radius: 999px; display: grid; place-items: center; }
+.tab[aria-current="page"] { color: var(--ink); font-weight: 800; }
+.tab[aria-current="page"] .ic { background: var(--ink); color: var(--card); }
+
+.toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 30; width: max-content; max-width: min(440px, calc(100% - 32px)); padding: 12px 16px; border-radius: 14px; background: var(--ink); color: var(--card); font-size: 14px; font-weight: 600; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<main class="app" id="app"></main>
+
+<nav class="tabbar" aria-label="Розділи">
+  <div class="tabs">
+    <button type="button" class="tab" id="tab-week" data-act="tab" data-tab="week" aria-current="page">
+      <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
+      <span>Тиждень</span>
+    </button>
+    <button type="button" class="tab" id="tab-history" data-act="tab" data-tab="history" aria-current="false">
+      <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
+      <span>Історія</span>
+    </button>
+    <button type="button" class="tab" id="tab-people" data-act="tab" data-tab="people" aria-current="false">
+      <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M15.5 5.2a3.5 3.5 0 0 1 0 6.6M17.5 14.3A6.5 6.5 0 0 1 21.5 20"/></svg></span>
+      <span>Люди</span>
+    </button>
+  </div>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- config ---------- */
+  var DEFAULT_REPO = 's1xen7ag/poizdky-data';  // приватний репозиторій з даними
+  var DATA_PATH = 'poizdky.json';               // файл з поїздками в ньому
+  var LS_DATA = 'poizdky.data.v2';
+  var LS_GH = 'poizdky.github.v1';
+
+  var MONTHS_G = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
+  var MONTHS_S = ['січ.', 'лют.', 'бер.', 'квіт.', 'трав.', 'черв.', 'лип.', 'серп.', 'вер.', 'жовт.', 'лист.', 'груд.'];
+  var DAY_NAMES = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пʼятниця', 'Субота', 'Неділя'];
+  var DAY_ACC = ['понеділок', 'вівторок', 'середу', 'четвер', 'пʼятницю', 'суботу', 'неділю'];
+  var ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
+  var KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  var REPO_RE = /^([A-Za-z0-9-]{1,39})\/([A-Za-z0-9._-]{1,100})$/;
+
+  var SVG = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+  var ICON = {
+    left: '<svg width="20" height="20" viewBox="0 0 24 24" stroke-width="2.2" ' + SVG + '><path d="M15 18l-6-6 6-6"/></svg>',
+    right: '<svg width="20" height="20" viewBox="0 0 24 24" stroke-width="2.2" ' + SVG + '><path d="M9 18l6-6-6-6"/></svg>',
+    rightSm: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2.2" ' + SVG + '><path d="M9 18l6-6-6-6"/></svg>',
+    bus: '<svg width="22" height="22" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M5 17V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v11"/><path d="M5 11h14M5 17h14M7.5 17v3M16.5 17v3M8.5 14h.01M15.5 14h.01"/></svg>',
+    busSm: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M5 17V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v11"/><path d="M5 11h14M5 17h14M7.5 17v3M16.5 17v3M8.5 14h.01M15.5 14h.01"/></svg>',
+    none: '<svg width="22" height="22" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>',
+    round: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M4 8h14M15 5l3 3-3 3M20 16H6M9 13l-3 3 3 3"/></svg>',
+    oneway: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M4 12h15M14 7l5 5-5 5"/></svg>',
+    check: '<svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.6" ' + SVG + '><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    pencil: '<svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.2" ' + SVG + '><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg>',
+    trash: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+    plus: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2.4" ' + SVG + '><path d="M12 5v14M5 12h14"/></svg>',
+    github: '<svg width="20" height="20" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>'
+  };
+
+  var app = document.getElementById('app');
+  var toastEl = document.getElementById('toast');
+  var tabButtons = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+
+  /* ---------- dates & numbers ---------- */
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function keyOf(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseKey(k) { var p = k.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+  function mondayOf(d) { return addDays(d, -((d.getDay() + 6) % 7)); }
+  function dayNum(d) { return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function num(v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/\s/g, '').replace(',', '.'));
+    return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+  }
+  function fmt(n) { return (Math.round(n * 100) / 100).toLocaleString('uk-UA', { maximumFractionDigits: 2 }) + ' ₴'; }
+  function plain(n) { return String(Math.round(n * 100) / 100).replace('.', ','); }
+  function plural(n, one, few, many) {
+    var a = n % 10, b = n % 100;
+    if (a === 1 && b !== 11) return one;
+    if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return few;
+    return many;
+  }
+  function trips(n) { return n + ' ' + plural(n, 'поїздка', 'поїздки', 'поїздок'); }
+  function weeksWord(n) { return plural(n, 'тиждень', 'тижні', 'тижнів'); }
+  function clock(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function now() { return Date.now(); }
+
+  function weekLabel(mon) {
+    var sun = addDays(mon, 6);
+    var s = mon.getMonth() === sun.getMonth()
+      ? mon.getDate() + ' – ' + sun.getDate() + ' ' + MONTHS_G[sun.getMonth()]
+      : mon.getDate() + ' ' + MONTHS_S[mon.getMonth()] + ' – ' + sun.getDate() + ' ' + MONTHS_S[sun.getMonth()];
+    if (sun.getFullYear() !== new Date().getFullYear()) s += ' ' + sun.getFullYear();
+    return s;
+  }
+  function agoLabel(mon) {
+    var diff = Math.round((dayNum(mondayOf(new Date())) - dayNum(mon)) / 7);
+    if (diff === 0) return 'Цей тиждень';
+    if (diff === 1) return 'Минулий тиждень';
+    if (diff === -1) return 'Наступний тиждень';
+    if (diff > 1) return diff + ' ' + weeksWord(diff) + ' тому';
+    return 'Через ' + (-diff) + ' ' + weeksWord(-diff);
+  }
+
+  /* ---------- data shapes ---------- */
+  function defaultSettings() {
+    return {
+      drivers: [{ id: 'd1', name: '', price: '', slot: 0 }, { id: 'd2', name: '', price: '', slot: 1 }],
+      busFare: '', mode: 'weekly', weekend: false, t: 0
+    };
+  }
+  function normalizeSettings(o) {
+    var base = defaultSettings();
+    if (!o || typeof o !== 'object') return base;
+    var list = Array.isArray(o.drivers) ? o.drivers : [];
+    var seen = {}, used = {}, out = [];
+    for (var i = 0; i < list.length && out.length < 4; i++) {
+      var d = list[i];
+      if (!d || typeof d !== 'object' || typeof d.id !== 'string' || !ID_RE.test(d.id) || seen[d.id]) continue;
+      seen[d.id] = true;
+      var slot = (typeof d.slot === 'number' && d.slot >= 0 && d.slot <= 3 && !used[d.slot]) ? d.slot : -1;
+      if (slot < 0) { slot = 0; while (used[slot] && slot < 3) slot++; }
+      used[slot] = true;
+      out.push({
+        id: d.id,
+        name: typeof d.name === 'string' ? d.name.slice(0, 24) : '',
+        price: d.price == null ? '' : String(d.price).slice(0, 8),
+        slot: slot
+      });
+    }
+    return {
+      drivers: out.length ? out : base.drivers,
+      busFare: o.busFare == null ? '' : String(o.busFare).slice(0, 8),
+      mode: o.mode === 'instant' ? 'instant' : 'weekly',
+      weekend: o.weekend === true,
+      t: typeof o.t === 'number' && isFinite(o.t) ? o.t : 0
+    };
+  }
+  /* A day with m === null is a cleared day, kept so the clear syncs to other devices. */
+  function normalizeDay(o) {
+    if (!o || typeof o !== 'object') return null;
+    var m = (typeof o.m === 'string' && o.m) ? o.m.slice(0, 40) : null;
+    return {
+      m: m,
+      round: o.round !== false,
+      amount: (typeof o.amount === 'number' && isFinite(o.amount) && o.amount >= 0) ? o.amount : null,
+      paid: o.paid === true,
+      who: typeof o.who === 'string' ? o.who.slice(0, 40) : '',
+      t: typeof o.t === 'number' && isFinite(o.t) ? o.t : 0
+    };
+  }
+  function normalizeWeek(o, id) {
+    var days = {};
+    var src = (o && typeof o.days === 'object' && o.days) ? o.days : {};
+    Object.keys(src).forEach(function (k) {
+      if (!KEY_RE.test(k)) return;
+      var d = normalizeDay(src[k]);
+      if (d) days[k] = d;
+    });
+    return { start: id, days: days };
+  }
+  function parseDoc(o) {
+    var weeks = {};
+    if (o && o.weeks && typeof o.weeks === 'object') {
+      Object.keys(o.weeks).forEach(function (k) { if (KEY_RE.test(k)) weeks[k] = normalizeWeek(o.weeks[k], k); });
+    }
+    return { settings: normalizeSettings(o && o.settings), weeks: weeks };
+  }
+  function docOf(data) {
+    var weeks = {};
+    Object.keys(data.weeks).sort().forEach(function (k) {
+      var days = data.weeks[k].days, out = {};
+      Object.keys(days).sort().forEach(function (dk) { out[dk] = days[dk]; });
+      if (Object.keys(out).length) weeks[k] = { days: out };
+    });
+    return { app: 'poizdky', v: 1, settings: data.settings, weeks: weeks };
+  }
+  function mergeData(a, b) {
+    var settings = (a.settings.t || 0) >= (b.settings.t || 0) ? a.settings : b.settings;
+    var weeks = {};
+    var keys = {};
+    Object.keys(a.weeks).forEach(function (k) { keys[k] = 1; });
+    Object.keys(b.weeks).forEach(function (k) { keys[k] = 1; });
+    Object.keys(keys).forEach(function (k) {
+      var x = (a.weeks[k] || { days: {} }).days, y = (b.weeks[k] || { days: {} }).days, days = {}, dk = {};
+      Object.keys(x).forEach(function (d) { dk[d] = 1; });
+      Object.keys(y).forEach(function (d) { dk[d] = 1; });
+      Object.keys(dk).forEach(function (d) {
+        var p = x[d], q = y[d];
+        days[d] = !p ? q : !q ? p : ((p.t || 0) >= (q.t || 0) ? p : q);
+      });
+      weeks[k] = { start: k, days: days };
+    });
+    return parseDoc(JSON.parse(JSON.stringify(docOf({ settings: settings, weeks: weeks }))));
+  }
+
+  /* ---------- state ---------- */
+  var state = {
+    tab: 'week',
+    weekKey: keyOf(mondayOf(new Date())),
+    settings: defaultSettings(),
+    weeks: {},
+    editing: null,
+    confirm: null,
+    ghForm: { repo: DEFAULT_REPO, error: '' }
+  };
+  var pendingRender = false, focusAfter = null, settingsTimer = null;
+
+  function drivers() { return state.settings.drivers; }
+  function driverById(id) { var l = drivers(); for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
+  function driverIndex(id) { var l = drivers(); for (var i = 0; i < l.length; i++) if (l[i].id === id) return i; return -1; }
+  function dname(d, i) { return (d.name || '').trim() || ('Водій ' + (i + 1)); }
+  function avatarText(d, i) { var t = (d.name || '').trim(); return t ? Array.from(t)[0].toUpperCase() : String(i + 1); }
+  function slotCls(s) { return (s >= 0 && s <= 3) ? 'c' + s : 'cx'; }
+  function nameForId(id, fallback) { var i = driverIndex(id); return i >= 0 ? dname(drivers()[i], i) : (fallback || 'Видалений водій'); }
+  function halfText(d) { var p = num(d.price); return p ? 'В один бік — ' + fmt(p / 2) + ' (половина)' : 'Впиши ціну, щоб програма рахувала сама'; }
+  function live(d) { return d && d.m ? d : null; }
+
+  function defaultAmount(d) {
+    if (d.m === 'bus') { var f = num(state.settings.busFare); return d.round ? f * 2 : f; }
+    var dr = driverById(d.m);
+    if (!dr) return 0;
+    var p = num(dr.price);
+    return d.round ? p : p / 2;
+  }
+  function effective(d) { return typeof d.amount === 'number' ? d.amount : defaultAmount(d); }
+
+  function weekStats(wk) {
+    var per = new Map(), bus = 0, busTrips = 0, total = 0, unpaid = 0;
+    var days = (wk && wk.days) || {};
+    Object.keys(days).sort().forEach(function (k) {
+      var d = days[k];
+      if (!d || !d.m || d.m === 'none') return;
+      var c = effective(d);
+      if (d.m === 'bus') { bus += c; busTrips++; return; }
+      var p = per.get(d.m);
+      if (!p) { p = { total: 0, unpaid: 0, trips: 0, name: '' }; per.set(d.m, p); }
+      if (d.who) p.name = d.who;
+      p.total += c; p.trips++;
+      if (!d.paid) p.unpaid += c;
+      total += c;
+      if (!d.paid) unpaid += c;
+    });
+    return { per: per, bus: bus, busTrips: busTrips, total: total, unpaid: unpaid };
+  }
+  function hasTrips(wk) {
+    var days = (wk && wk.days) || {};
+    return Object.keys(days).some(function (k) { var d = days[k]; return d && d.m && d.m !== 'none'; });
+  }
+  function orderedIds(map) {
+    var ids = [];
+    drivers().forEach(function (d) { if (map.has(d.id)) ids.push(d.id); });
+    map.forEach(function (_, id) { if (ids.indexOf(id) < 0) ids.push(id); });
+    return ids;
+  }
+
+  /* ---------- local storage ---------- */
+  function loadLocal() {
+    try {
+      var raw = localStorage.getItem(LS_DATA);
+      if (raw) { var p = parseDoc(JSON.parse(raw)); state.settings = p.settings; state.weeks = p.weeks; }
+    } catch (e) {}
+  }
+  function saveLocal() {
+    try { localStorage.setItem(LS_DATA, JSON.stringify(docOf({ settings: state.settings, weeks: state.weeks }))); }
+    catch (e) { toast('Не вдалося зберегти в цьому браузері.'); }
+  }
+  function loadGh() {
+    try {
+      var o = JSON.parse(localStorage.getItem(LS_GH) || 'null');
+      if (o && typeof o.repo === 'string' && REPO_RE.test(o.repo) && typeof o.token === 'string' && o.token) return { repo: o.repo, token: o.token };
+    } catch (e) {}
+    return null;
+  }
+  function saveGh() { try { if (gh) localStorage.setItem(LS_GH, JSON.stringify(gh)); else localStorage.removeItem(LS_GH); } catch (e) {} }
+
+  /* ---------- GitHub sync ---------- */
+  var gh = loadGh();
+  var sync = { status: gh ? 'busy' : 'off', msg: '', sha: null, lastSaved: null, timer: null, busy: false, again: false, pullAgain: false };
+
+  function toB64(str) {
+    var bytes = new TextEncoder().encode(str), bin = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  function fromB64(b64) {
+    var bin = atob(String(b64).replace(/\s/g, '')), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  function ghHeaders(json) {
+    var h = { 'Authorization': 'Bearer ' + gh.token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+  }
+  function apiBase(repo) { var m = REPO_RE.exec(repo); return 'https://api.github.com/repos/' + m[1] + '/' + m[2]; }
+  function httpError(res) { var e = new Error('HTTP ' + res.status); e.status = res.status; e.rateLimited = res.headers.get('x-ratelimit-remaining') === '0'; return e; }
+
+  async function ghGet() {
+    var res = await fetch(apiBase(gh.repo) + '/contents/' + DATA_PATH + '?t=' + now(), { headers: ghHeaders(false), cache: 'no-store' });
+    if (res.status === 404) {
+      var repoRes = await fetch(apiBase(gh.repo), { headers: ghHeaders(false), cache: 'no-store' });
+      if (!repoRes.ok) throw httpError(repoRes);
+      return { doc: null, sha: null };
+    }
+    if (!res.ok) throw httpError(res);
+    var body = await res.json();
+    var doc = null;
+    try { doc = JSON.parse(fromB64(body.content || '')); } catch (e) { doc = null; }
+    return { doc: doc, sha: body.sha || null };
+  }
+  async function ghPut(sha) {
+    var text = JSON.stringify(docOf({ settings: state.settings, weeks: state.weeks }), null, 1) + '\n';
+    var d = new Date();
+    var payload = { message: 'Поїздки: оновлення ' + d.getDate() + ' ' + MONTHS_G[d.getMonth()] + ', ' + clock(d), content: toB64(text) };
+    if (sha) payload.sha = sha;
+    var body = JSON.stringify(payload);
+    var res = await fetch(apiBase(gh.repo) + '/contents/' + DATA_PATH, { method: 'PUT', headers: ghHeaders(true), body: body, keepalive: body.length < 60000 });
+    if (!res.ok) throw httpError(res);
+    var out = await res.json();
+    return out && out.content && out.content.sha;
+  }
+  function errMessage(e) {
+    if (!e || !e.status) return 'Немає звʼязку з GitHub. Зміни лишаються на цьому пристрої й відправляться, коли зʼявиться інтернет.';
+    if (e.status === 401) return 'GitHub не прийняв токен. Можливо, він протермінований: створи новий і підключи знову.';
+    if (e.status === 403 && e.rateLimited) return 'GitHub тимчасово обмежив запити. Спробуй за кілька хвилин.';
+    if (e.status === 403) return 'Токену бракує дозволу Contents: Read and write для цього репозиторію.';
+    if (e.status === 404) return 'Не бачу репозиторій ' + (gh ? gh.repo : '') + '. Перевір назву і що токен має до нього доступ.';
+    return 'GitHub відповів помилкою ' + e.status + '. Спробуй ще раз пізніше.';
+  }
+  function setSync(status, msg) { sync.status = status; sync.msg = msg || ''; paintSync(); }
+  function syncText() {
+    if (!gh) return { cls: '', text: 'Не підключено: дані тільки на цьому пристрої' };
+    if (sync.status === 'busy') return { cls: 'busy', text: 'Синхронізую з GitHub…' };
+    if (sync.status === 'err') return { cls: 'err', text: sync.msg };
+    if (sync.timer) return { cls: 'busy', text: 'Є зміни, відправлю за мить…' };
+    return { cls: 'ok', text: sync.lastSaved ? 'Збережено на GitHub о ' + clock(sync.lastSaved) : 'Синхронізовано з GitHub' };
+  }
+  function paintSync() {
+    var s = syncText();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-sync-line]'), function (el) {
+      el.className = 'sync-line ' + s.cls + (el.dataset.syncLine === 'foot' ? ' sync-foot' : '');
+      el.textContent = s.text;
+    });
+  }
+
+  async function pull() {
+    if (!gh) return;
+    if (sync.busy) { sync.pullAgain = true; return; }
+    sync.busy = true; setSync('busy');
+    try {
+      var r = await ghGet();
+      sync.sha = r.sha;
+      var remote = r.doc ? parseDoc(r.doc) : { settings: defaultSettings(), weeks: {} };
+      var merged = mergeData({ settings: state.settings, weeks: state.weeks }, remote);
+      var changedRemote = !r.doc || JSON.stringify(docOf(merged)) !== JSON.stringify(docOf(remote));
+      var changedLocal = JSON.stringify(docOf(merged)) !== JSON.stringify(docOf({ settings: state.settings, weeks: state.weeks }));
+      if (changedLocal && settingsTimer === null) { state.settings = merged.settings; state.weeks = merged.weeks; saveLocal(); scheduleRender(); }
+      sync.busy = false;
+      if (changedRemote || settingsTimer !== null) schedulePush(200); else { sync.lastSaved = sync.lastSaved || new Date(); setSync('ok'); }
+    } catch (e) {
+      sync.busy = false;
+      setSync('err', errMessage(e));
+    }
+    if (sync.pullAgain) { sync.pullAgain = false; pull(); }
+  }
+  async function push() {
+    clearTimeout(sync.timer); sync.timer = null;
+    if (!gh) return;
+    if (sync.busy) { sync.again = true; return; }
+    sync.busy = true; setSync('busy');
+    try {
+      for (var attempt = 0; ; attempt++) {
+        try { sync.sha = await ghPut(sync.sha); break; }
+        catch (e) {
+          if ((e.status === 409 || e.status === 422) && attempt < 2) {
+            var r = await ghGet();
+            sync.sha = r.sha;
+            if (r.doc) {
+              var merged = mergeData({ settings: state.settings, weeks: state.weeks }, parseDoc(r.doc));
+              state.settings = merged.settings; state.weeks = merged.weeks; saveLocal(); scheduleRender();
+            }
+            continue;
+          }
+          throw e;
+        }
+      }
+      sync.lastSaved = new Date();
+      sync.busy = false;
+      setSync('ok');
+    } catch (e) {
+      sync.busy = false;
+      setSync('err', errMessage(e));
+    }
+    if (sync.again) { sync.again = false; schedulePush(300); }
+  }
+  function schedulePush(ms) {
+    if (!gh) return;
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(push, ms == null ? 1500 : ms);
+    paintSync();
+  }
+  function persist() { saveLocal(); schedulePush(); }
+
+  async function connect(repoRaw, tokenRaw) {
+    var repo = String(repoRaw || '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, '');
+    var token = String(tokenRaw || '').trim();
+    state.ghForm.repo = repo;
+    if (!REPO_RE.test(repo)) { state.ghForm.error = 'Впиши репозиторій у вигляді імʼя/назва, наприклад ' + DEFAULT_REPO + '.'; render(); return; }
+    if (!token) { state.ghForm.error = 'Встав токен GitHub.'; render(); return; }
+    var prev = gh;
+    gh = { repo: repo, token: token };
+    state.ghForm.error = '';
+    var btn = document.getElementById('gh-connect');
+    if (btn) { btn.disabled = true; btn.textContent = 'Підключаю…'; }
+    try {
+      var res = await fetch(apiBase(repo), { headers: ghHeaders(false), cache: 'no-store' });
+      if (!res.ok) throw httpError(res);
+    } catch (e) {
+      var msg = errMessage(e);
+      gh = prev;
+      state.ghForm.error = msg;
+      render();
+      return;
+    }
+    saveGh();
+    sync.sha = null; sync.lastSaved = null;
+    render();
+    await pull();
+    toast('GitHub підключено');
+  }
+  function disconnect() {
+    gh = null; saveGh();
+    clearTimeout(sync.timer); sync.timer = null; sync.sha = null;
+    setSync('off');
+    render();
+    toast('GitHub відключено на цьому пристрої');
+  }
+  function downloadCopy() {
+    var text = JSON.stringify(docOf({ settings: state.settings, weeks: state.weeks }), null, 1);
+    var blob = new Blob([text], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'poizdky-' + keyOf(new Date()) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  /* ---------- views ---------- */
+  function optHtml(key, m, label, icon, cls, on) {
+    return '<button type="button" class="opt ' + cls + '" id="opt-' + key + '-' + m + '" data-act="pick" data-day="' + key + '" data-m="' + m + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+      icon + '<span class="lbl">' + esc(label) + '</span></button>';
+  }
+
+  function dayHtml(i, mon, wk, weekly, todayKey) {
+    var date = addDays(mon, i), key = keyOf(date), d = live(wk.days[key]);
+    var name = DAY_NAMES[i];
+    var isToday = key === todayKey;
+    var isBus = !!d && d.m === 'bus', isNone = !!d && d.m === 'none', isDrv = !!d && !isBus && !isNone;
+    var c = d ? effective(d) : 0;
+    var dr = isDrv ? driverById(d.m) : null;
+
+    var status = date.getDate() + ' ' + MONTHS_S[date.getMonth()];
+    if (!d) status += ' · ще не вказано';
+    else if (isDrv && !dr) status += ' · ' + (d.who || 'видалений водій');
+
+    var amtBtn = '<button type="button" class="amt-btn" id="amtbtn-' + key + '" data-act="edit" data-day="' + key + '" aria-label="Сума ' + fmt(c) + '. Змінити"><span class="num">' + fmt(c) + '</span>' + ICON.pencil + '</button>';
+    var sum;
+    if (isDrv) sum = amtBtn + '<span class="cap ' + (d.paid ? 'good' : 'owe') + '">' + (d.paid ? 'віддано' : 'до віддачі') + '</span>';
+    else if (isBus) sum = amtBtn + '<span class="cap">маршрутка</span>';
+    else if (isNone) sum = '<span class="amt-static num">0 ₴</span><span class="cap">без поїздки</span>';
+    else sum = '<span class="amt-static num" aria-hidden="true">—</span>';
+
+    var opts = drivers().map(function (x, k) {
+      return optHtml(key, x.id, dname(x, k), '<span class="av" aria-hidden="true">' + esc(avatarText(x, k)) + '</span>', 'drv ' + slotCls(x.slot), !!d && d.m === x.id);
+    });
+    opts.push(optHtml(key, 'bus', 'Маршрутка', ICON.bus, 'bus', isBus));
+    opts.push(optHtml(key, 'none', 'Не їду', ICON.none, 'none', isNone));
+    var cols = opts.length <= 4 ? opts.length : 3;
+
+    var trip = '';
+    if (isDrv || isBus) {
+      var rl = d.round ? 'Туди й назад' : 'Тільки в один бік';
+      trip = '<div class="trip">' +
+        '<button type="button" class="pill" id="round-' + key + '" data-act="round" data-day="' + key + '" aria-label="' + rl + '. Змінити">' + (d.round ? ICON.round : ICON.oneway) + '<span>' + rl + '</span></button>' +
+        (isDrv && !weekly ? '<label class="check" for="paid-' + key + '"><input type="checkbox" id="paid-' + key + '" data-act="paid" data-day="' + key + '"' + (d.paid ? ' checked' : '') + '><span>Віддано</span></label>' : '') +
+        (isDrv && weekly && !d.paid ? '<span class="note">у підсумок тижня</span>' : '') +
+        '</div>';
+    }
+
+    var edit = '';
+    if (state.editing === key && (isDrv || isBus)) {
+      edit = '<form class="edit" id="form-' + key + '" data-form="amount" data-day="' + key + '">' +
+        '<label for="amt-' + key + '">Сума за ' + DAY_ACC[i] + '</label>' +
+        '<div class="edit-row">' +
+          '<span class="money"><input type="text" inputmode="decimal" id="amt-' + key + '" name="amount" value="' + plain(c) + '" maxlength="8" autocomplete="off"><span class="cur" aria-hidden="true">₴</span></span>' +
+          '<button type="submit" class="btn-ink" id="save-' + key + '">Зберегти</button>' +
+          '<button type="button" class="btn-ghost" id="cancel-' + key + '" data-act="cancel-edit" data-day="' + key + '">Скасувати</button>' +
+        '</div>' +
+        (typeof d.amount === 'number' && !d.paid ? '<button type="button" class="link-btn" id="reset-' + key + '" data-act="reset-amount" data-day="' + key + '">Повернути звичайну ціну</button>' : '') +
+        '</form>';
+    }
+
+    return '<section class="day' + (isToday ? ' is-today' : '') + '" aria-label="' + name + ', ' + date.getDate() + ' ' + MONTHS_G[date.getMonth()] + '">' +
+      '<div class="day-head">' +
+        '<div class="day-info"><div class="day-title"><h3>' + name + '</h3>' + (isToday ? '<span class="today-badge">Сьогодні</span>' : '') + '</div><span class="day-date">' + esc(status) + '</span></div>' +
+        '<div class="day-sum">' + sum + '</div>' +
+      '</div>' +
+      '<div class="opts" role="group" aria-label="Як їду в ' + DAY_ACC[i] + '" style="--cols:' + cols + '">' + opts.join('') + '</div>' +
+      trip + edit +
+      '</section>';
+  }
+
+  function viewWeek() {
+    var s = state.settings;
+    var mon = parseKey(state.weekKey), sun = addDays(mon, 6);
+    var wk = state.weeks[state.weekKey] || { days: {} };
+    var st = weekStats(wk);
+    var weekly = s.mode !== 'instant';
+    var todayKey = keyOf(new Date());
+    var isCurrent = state.weekKey === keyOf(mondayOf(new Date()));
+
+    var html = '<header class="top">' +
+      '<button type="button" class="round-btn" id="nav-prev" data-act="prev" aria-label="Попередній тиждень">' + ICON.left + '</button>' +
+      '<div class="top-mid"><span class="kicker">' + esc(agoLabel(mon)) + '</span><h1 class="week-title">' + esc(weekLabel(mon)) + '</h1></div>' +
+      '<button type="button" class="round-btn" id="nav-next" data-act="next" aria-label="Наступний тиждень">' + ICON.right + '</button>' +
+      '</header>';
+    if (!isCurrent) html += '<button type="button" class="back-today" id="nav-today" data-act="today">Повернутися до цього тижня</button>';
+
+    if (gh && sync.status === 'err') {
+      html += '<div class="setup warn"><div class="setup-text"><strong>Не вдалося зберегти на GitHub</strong><p>' + esc(sync.msg) + '</p></div>' +
+        '<button type="button" class="btn-ink" id="sync-retry" data-act="sync-now">Спробувати ще раз</button></div>';
+    }
+    var needsSetup = s.drivers.some(function (d) { return !(d.name || '').trim() || !num(d.price); });
+    if (needsSetup) {
+      html += '<div class="setup"><div class="setup-text"><strong>Налаштуй один раз</strong><p>Впиши імена одногрупників і скільки коштує поїздка туди й назад.</p></div>' +
+        '<button type="button" class="btn-ink" id="go-setup" data-act="tab" data-tab="people">Налаштувати</button></div>';
+    } else if (!gh) {
+      html += '<div class="setup"><div class="setup-text"><strong>Поїздки поки тільки на цьому пристрої</strong><p>Підключи GitHub, щоб вони не загубились і були й на телефоні, й на компʼютері.</p></div>' +
+        '<button type="button" class="btn-ink" id="go-gh" data-act="go-sync">Підключити</button></div>';
+    }
+
+    var carry = 0;
+    Object.keys(state.weeks).forEach(function (k) { if (k < state.weekKey) carry += weekStats(state.weeks[k]).unpaid; });
+
+    var rows = s.drivers.map(function (d, i) {
+      return { id: d.id, slot: d.slot, name: dname(d, i), av: avatarText(d, i), p: st.per.get(d.id) || { total: 0, unpaid: 0, trips: 0 } };
+    });
+    st.per.forEach(function (p, id) {
+      if (!driverById(id)) rows.push({ id: id, slot: -1, name: p.name || 'Видалений водій', av: p.name ? Array.from(p.name)[0].toUpperCase() : '–', p: p });
+    });
+    var rowsHtml = rows.map(function (r) {
+      var p = r.p, canPay = p.unpaid > 0, settled = !canPay && p.total > 0;
+      var val = fmt(canPay ? p.unpaid : p.total);
+      var meta = trips(p.trips) + (canPay && p.unpaid < p.total ? ' · усього ' + fmt(p.total) : '');
+      var btn = '';
+      if (canPay) btn = '<button type="button" class="t-pay" id="settle-' + r.id + '" data-act="settle" data-id="' + r.id + '" aria-label="Розрахувались: ' + esc(r.name) + ', ' + val + '">Розрахувались</button>';
+      else if (settled) btn = '<button type="button" class="t-paid" id="settle-' + r.id + '" data-act="settle" data-id="' + r.id + '" aria-label="Скасувати: ' + esc(r.name) + ', ще не віддано">' + ICON.check + '<span>Віддано</span></button>';
+      return '<div class="t-row"><span class="avatar ' + slotCls(r.slot) + '" aria-hidden="true">' + esc(r.av) + '</span>' +
+        '<div class="t-who"><span class="t-name">' + esc(r.name) + '</span><span class="t-meta">' + esc(meta) + '</span></div>' +
+        '<span class="t-val num">' + val + '</span>' + btn + '</div>';
+    }).join('');
+    var busRow = st.busTrips ? '<div class="t-row t-bus"><span class="avatar bus" aria-hidden="true">' + ICON.busSm + '</span>' +
+      '<div class="t-who"><span class="t-name">Маршрутка</span><span class="t-meta">' + trips(st.busTrips) + ' · свої витрати</span></div>' +
+      '<span class="t-val num dim">' + fmt(st.bus) + '</span></div>' : '';
+    var settledAll = st.unpaid === 0 && st.total > 0;
+    var sub = 'За тиждень ' + fmt(st.total) + ' · ' + (weekly ? 'віддаєш до неділі, ' + sun.getDate() + ' ' + MONTHS_G[sun.getMonth()] : 'віддаєш одразу після поїздки');
+
+    html += '<section class="ticket" aria-label="Підсумок тижня">' +
+      '<div class="t-top"><span class="kicker">Залишилось віддати</span>' +
+        '<div class="t-amount-row"><span class="t-amount num">' + fmt(st.unpaid) + '</span>' + (settledAll ? '<span class="badge-good">' + ICON.check + '<span>Розраховано</span></span>' : '') + '</div>' +
+        '<p class="t-sub">' + esc(sub) + '</p>' +
+        (carry > 0 ? '<button type="button" class="t-carry" id="carry" data-act="tab" data-tab="history">+ ' + fmt(carry) + ' ще з минулих тижнів · Переглянути</button>' : '') +
+      '</div>' +
+      '<div class="perf" aria-hidden="true"><span></span></div>' +
+      '<div class="t-rows">' + rowsHtml + busRow + '</div>' +
+      '</section>';
+
+    html += '<div class="sec-head"><h2 class="kicker">Дні</h2><span>Обери, з ким або як їдеш</span></div>';
+    for (var i = 0; i < 7; i++) {
+      var k = keyOf(addDays(mon, i));
+      if (i < 5 || s.weekend || live(wk.days[k])) html += dayHtml(i, mon, wk, weekly, todayKey);
+    }
+    if (gh) html += '<p data-sync-line="foot"></p>';
+    return html;
+  }
+
+  function viewHistory() {
+    var head = '<header class="page-head"><h1>Історія</h1><p>Скільки й кому віддано за кожен тиждень.</p></header>';
+    var keys = Object.keys(state.weeks).filter(function (k) { return hasTrips(state.weeks[k]); }).sort().reverse();
+    if (!keys.length) {
+      return head + '<div class="empty"><strong>Поки що порожньо</strong><p>Тут зʼявляться тижні, щойно відмітиш першу поїздку.</p>' +
+        '<button type="button" class="btn-ink" id="go-week" data-act="tab" data-tab="week">Відкрити тиждень</button></div>';
+    }
+    var all = new Map(), bus = 0, busTrips = 0, total = 0, unpaid = 0;
+    var items = keys.map(function (k) {
+      var x = weekStats(state.weeks[k]);
+      x.per.forEach(function (p, id) {
+        var a = all.get(id);
+        if (!a) { a = { total: 0, trips: 0, name: '' }; all.set(id, a); }
+        if (p.name) a.name = p.name;
+        a.total += p.total; a.trips += p.trips;
+      });
+      bus += x.bus; busTrips += x.busTrips; total += x.total; unpaid += x.unpaid;
+      var mon = parseKey(k);
+      var parts = orderedIds(x.per).map(function (id) { var p = x.per.get(id); return nameForId(id, p.name) + ' ' + fmt(p.total); });
+      if (x.bus > 0) parts.push('маршрутка ' + fmt(x.bus));
+      var stText, stCls;
+      if (x.total === 0) { stText = 'лише маршрутка'; stCls = ''; }
+      else if (x.unpaid === 0) { stText = '✓ розраховано'; stCls = 'good'; }
+      else { stText = 'ще ' + fmt(x.unpaid); stCls = 'owe'; }
+      return '<button type="button" class="wk' + (k === state.weekKey ? ' is-open' : '') + '" id="wk-' + k + '" data-act="open-week" data-week="' + k + '">' +
+        '<span class="wk-main"><span class="kicker">' + esc(agoLabel(mon)) + '</span><span class="wk-label">' + esc(weekLabel(mon)) + '</span><span class="wk-break">' + esc(parts.join(' · ')) + '</span></span>' +
+        '<span class="wk-side"><span class="wk-total num">' + fmt(x.total) + '</span><span class="st ' + stCls + '">' + stText + '</span></span>' +
+        ICON.rightSm + '</button>';
+    }).join('');
+
+    var rows = orderedIds(all).map(function (id) {
+      var a = all.get(id), i = driverIndex(id), d = i >= 0 ? drivers()[i] : null;
+      var nm = nameForId(id, a.name);
+      var av = d ? avatarText(d, i) : (a.name ? Array.from(a.name)[0].toUpperCase() : '–');
+      return '<div class="t-row"><span class="avatar ' + slotCls(d ? d.slot : -1) + '" aria-hidden="true">' + esc(av) + '</span>' +
+        '<div class="t-who"><span class="t-name">' + esc(nm) + '</span><span class="t-meta">' + trips(a.trips) + '</span></div>' +
+        '<span class="t-val num">' + fmt(a.total) + '</span></div>';
+    }).join('');
+    if (busTrips) {
+      rows += '<div class="t-row"><span class="avatar bus" aria-hidden="true">' + ICON.busSm + '</span>' +
+        '<div class="t-who"><span class="t-name">Маршрутка</span><span class="t-meta">' + trips(busTrips) + ' · свої витрати</span></div>' +
+        '<span class="t-val num dim">' + fmt(bus) + '</span></div>';
+    }
+    var n = keys.length;
+    var card = '<section class="ticket" aria-label="Усього">' +
+      '<div class="t-top"><span class="kicker">Водіям за ' + n + ' ' + weeksWord(n) + '</span>' +
+        '<span class="t-amount num">' + fmt(total) + '</span>' +
+        '<span class="t-note ' + (unpaid > 0 ? 'owe' : 'good') + '">' + (unpaid > 0 ? 'Ще не віддано: ' + fmt(unpaid) : 'Усе віддано') + '</span></div>' +
+      '<div class="t-rows divided">' + rows + '</div></section>';
+
+    return head + card + '<div class="sec-head"><h2 class="kicker">Тижні</h2></div>' + items;
+  }
+
+  function syncCard() {
+    var html = '<section class="card" id="sync" aria-labelledby="sync-title">' +
+      '<div class="card-head"><span class="avatar big busc" aria-hidden="true">' + ICON.github + '</span>' +
+      '<div class="who"><span class="kicker">Збереження</span><h2 class="card-title" id="sync-title">GitHub</h2></div></div>' +
+      '<p data-sync-line="card"></p>';
+    if (gh) {
+      html += '<p class="hint">Репозиторій: <b>' + esc(gh.repo) + '</b>, файл ' + DATA_PATH + '. Відкрий застосунок на іншому пристрої й підключи той самий репозиторій, і поїздки будуть там теж.</p>' +
+        '<div class="btn-row"><button type="button" class="btn-ink" id="sync-now" data-act="sync-now">Синхронізувати зараз</button>' +
+        '<button type="button" class="btn-ghost" id="gh-off" data-act="disconnect">Відключити</button></div>';
+    } else {
+      html += '<p class="hint">Поїздки зберігатимуться у файлі ' + DATA_PATH + ' у твоєму приватному репозиторії. Його бачиш тільки ти.</p>' +
+        '<form class="stack" id="gh-form" data-form="github">' +
+          '<label class="field" for="gh-repo"><span>Репозиторій</span><input type="text" id="gh-repo" name="repo" value="' + esc(state.ghForm.repo) + '" autocomplete="off" autocapitalize="off" spellcheck="false"></label>' +
+          '<label class="field" for="gh-token"><span>Токен GitHub</span><input type="password" id="gh-token" name="token" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false"></label>' +
+          (state.ghForm.error ? '<p class="hint err" role="alert">' + esc(state.ghForm.error) + '</p>' : '') +
+          '<button type="submit" class="btn-ink" id="gh-connect">Підключити</button>' +
+        '</form>' +
+        '<details class="how"><summary>Як отримати токен</summary><ol class="steps">' +
+          '<li>Відкрий <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>.</li>' +
+          '<li>Назва: <b>Поїздки</b>. Термін дії: наприклад, <b>1 рік</b>.</li>' +
+          '<li>Repository access: <b>Only select repositories</b> → <b>poizdky-data</b>.</li>' +
+          '<li>Permissions → Repository permissions → <b>Contents: Read and write</b>.</li>' +
+          '<li>Натисни <b>Generate token</b>, скопіюй його і встав у поле вище.</li>' +
+        '</ol></details>' +
+        '<p class="hint">Токен зберігається тільки в цьому браузері й дає доступ лише до репозиторію з даними.</p>';
+    }
+    html += '<button type="button" class="link-btn" id="download" data-act="download">Завантажити копію даних (JSON)</button></section>';
+    return html;
+  }
+
+  function viewPeople() {
+    var s = state.settings;
+    var html = '<header class="page-head"><h1>Люди і ціни</h1><p>Ціна підставляється сама, коли обираєш, з ким їдеш. Суму за окремий день можна змінити, якщо натиснути на неї.</p></header>';
+
+    html += s.drivers.map(function (d, i) {
+      var nm = dname(d, i);
+      var confirm = state.confirm === d.id
+        ? '<div class="confirm"><span>Видалити «' + esc(nm) + '»? Поїздки з ним залишаться в історії.</span>' +
+          '<button type="button" class="btn-danger" id="rm-yes-' + d.id + '" data-act="remove" data-id="' + d.id + '">Видалити</button>' +
+          '<button type="button" class="btn-ghost" id="rm-no-' + d.id + '" data-act="cancel-remove">Ні</button></div>'
+        : '';
+      return '<section class="card" aria-label="Водій ' + (i + 1) + '">' +
+        '<div class="card-head">' +
+          '<span class="avatar big ' + slotCls(d.slot) + '" id="av-' + d.id + '" aria-hidden="true">' + esc(avatarText(d, i)) + '</span>' +
+          '<div class="who"><span class="kicker">Водій ' + (i + 1) + '</span><span class="card-title" id="title-' + d.id + '">' + esc(nm) + '</span></div>' +
+          (s.drivers.length > 1 ? '<button type="button" class="icon-btn" id="rm-' + d.id + '" data-act="ask-remove" data-id="' + d.id + '" aria-label="Видалити: ' + esc(nm) + '">' + ICON.trash + '</button>' : '') +
+        '</div>' + confirm +
+        '<div class="grid2">' +
+          '<label class="field" for="name-' + d.id + '"><span>Імʼя</span><input type="text" id="name-' + d.id + '" data-field="name" data-id="' + d.id + '" value="' + esc(d.name) + '" placeholder="Напр., Андрій" maxlength="24" autocomplete="off"></label>' +
+          '<label class="field" for="price-' + d.id + '"><span>Туди й назад</span><span class="money"><input type="text" inputmode="decimal" id="price-' + d.id + '" data-field="price" data-id="' + d.id + '" value="' + esc(d.price) + '" placeholder="0" maxlength="8" autocomplete="off"><span class="cur" aria-hidden="true">₴</span></span></label>' +
+        '</div>' +
+        '<p class="hint" id="half-' + d.id + '">' + esc(halfText(d)) + '</p>' +
+        '</section>';
+    }).join('');
+
+    if (s.drivers.length < 4) {
+      html += '<button type="button" class="add-btn" id="add-driver" data-act="add-driver">' + ICON.plus + '<span>Додати ще одного водія</span></button>';
+    }
+
+    html += '<section class="card" aria-label="Маршрутка">' +
+      '<div class="card-head"><span class="avatar big busc" aria-hidden="true">' + ICON.busSm + '</span><div class="who"><span class="kicker">Якщо ніхто не везе</span><span class="card-title">Маршрутка</span></div></div>' +
+      '<div class="grid2">' +
+        '<label class="field" for="bus-fare"><span>Одна поїздка</span><span class="money"><input type="text" inputmode="decimal" id="bus-fare" data-field="busFare" value="' + esc(s.busFare) + '" placeholder="0" maxlength="8" autocomplete="off"><span class="cur" aria-hidden="true">₴</span></span></label>' +
+        '<div class="field"><span>Туди й назад</span><span class="readout num" id="bus-round">' + fmt(num(s.busFare) * 2) + '</span></div>' +
+      '</div>' +
+      '<p class="hint">Маршрутка рахується окремо: це твої витрати, не борг.</p>' +
+      '</section>';
+
+    var weekly = s.mode !== 'instant';
+    html += '<section class="card" aria-labelledby="mode-title"><h2 class="card-h2" id="mode-title">Коли віддаю гроші</h2>' +
+      '<label class="choice' + (weekly ? ' on' : '') + '" for="mode-weekly"><input type="radio" name="paymode" id="mode-weekly" value="weekly"' + (weekly ? ' checked' : '') + '>' +
+        '<span><strong>У кінці тижня</strong><small>Програма сама підсумує, скільки віддати кожному. Потім один раз тиснеш «Розрахувались».</small></span></label>' +
+      '<label class="choice' + (!weekly ? ' on' : '') + '" for="mode-instant"><input type="radio" name="paymode" id="mode-instant" value="instant"' + (!weekly ? ' checked' : '') + '>' +
+        '<span><strong>Одразу після поїздки</strong><small>Біля кожного дня зʼявиться галочка «Віддано».</small></span></label>' +
+      '</section>';
+
+    html += '<label class="choice solo' + (s.weekend ? ' on' : '') + '" for="weekend"><input type="checkbox" id="weekend"' + (s.weekend ? ' checked' : '') + '>' +
+      '<span><strong>Показувати суботу й неділю</strong><small>Якщо їздиш і у вихідні.</small></span></label>';
+
+    html += syncCard();
+    return html;
+  }
+
+  function render() {
+    pendingRender = false;
+    var a = document.activeElement;
+    var keepId = focusAfter || (a && a !== document.body && app.contains(a) && a.id ? a.id : null);
+    focusAfter = null;
+    var view = state.tab === 'history' ? viewHistory() : state.tab === 'people' ? viewPeople() : viewWeek();
+    app.innerHTML = '<div class="stack">' + view + '</div>';
+    tabButtons.forEach(function (b) { b.setAttribute('aria-current', b.dataset.tab === state.tab ? 'page' : 'false'); });
+    paintSync();
+    if (keepId) {
+      var el = document.getElementById(keepId);
+      if (el && !el.disabled) {
+        el.focus({ preventScroll: true });
+        if (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'password')) { var n = el.value.length; try { el.setSelectionRange(n, n); } catch (e) {} }
+      }
+    }
+  }
+  function isTyping() {
+    var a = document.activeElement;
+    return !!(a && a.tagName === 'INPUT' && (a.type === 'text' || a.type === 'password') && app.contains(a));
+  }
+  function scheduleRender() { if (isTyping()) { pendingRender = true; return; } render(); }
+  app.addEventListener('focusout', function () {
+    if (!pendingRender) return;
+    setTimeout(function () { if (pendingRender && !isTyping()) render(); }, 0);
+  });
+
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.hidden = false;
+    toastEl.textContent = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 3200);
+  }
+
+  /* ---------- actions ---------- */
+  function touchWeek(key) { if (!state.weeks[key]) state.weeks[key] = { start: key, days: {} }; return state.weeks[key]; }
+  function curDay(dayKey) { var w = state.weeks[state.weekKey]; return w ? live(w.days[dayKey]) : null; }
+  function touchSettings() { state.settings.t = now(); }
+
+  function pick(dayKey, m) {
+    if (!KEY_RE.test(dayKey) || !(m === 'bus' || m === 'none' || driverById(m))) return;
+    var w = touchWeek(state.weekKey), cur = live(w.days[dayKey]);
+    if (cur && cur.m === m) {
+      w.days[dayKey] = { m: null, round: true, amount: null, paid: false, who: '', t: now() };
+    } else {
+      var dr = driverById(m);
+      w.days[dayKey] = { m: m, round: cur ? cur.round !== false : true, amount: null, paid: false, who: dr ? (dr.name || '').trim() : '', t: now() };
+    }
+    if (state.editing === dayKey) state.editing = null;
+    render();
+    persist();
+  }
+  function toggleRound(dayKey) {
+    var d = curDay(dayKey); if (!d) return;
+    d.round = !d.round;
+    d.amount = d.paid ? defaultAmount(d) : null;
+    d.t = now();
+    render(); persist();
+  }
+  function setPaid(dayKey, on) {
+    var d = curDay(dayKey); if (!d) return;
+    if (on && typeof d.amount !== 'number') d.amount = defaultAmount(d);
+    d.paid = on; d.t = now();
+    render(); persist();
+  }
+  function settle(id) {
+    var w = state.weeks[state.weekKey]; if (!w) return;
+    var list = Object.keys(w.days).map(function (k) { return w.days[k]; }).filter(function (d) { return d.m === id; });
+    if (!list.length) return;
+    var anyUnpaid = list.some(function (d) { return !d.paid; });
+    var t = now();
+    list.forEach(function (d) {
+      if (anyUnpaid && typeof d.amount !== 'number') d.amount = defaultAmount(d);
+      d.paid = anyUnpaid; d.t = t;
+    });
+    render(); persist();
+    toast(anyUnpaid ? 'Позначено: віддано' : 'Позначку знято');
+  }
+  function openEdit(dayKey) {
+    state.editing = dayKey;
+    render();
+    var el = document.getElementById('amt-' + dayKey);
+    if (el) { el.focus(); el.select(); }
+  }
+  function saveAmount(dayKey, raw) {
+    var d = curDay(dayKey); if (!d) return;
+    var t = String(raw || '').trim();
+    d.amount = t === '' ? (d.paid ? defaultAmount(d) : null) : num(t);
+    d.t = now();
+    state.editing = null;
+    focusAfter = 'amtbtn-' + dayKey;
+    render(); persist();
+  }
+  function resetAmount(dayKey) {
+    var d = curDay(dayKey); if (!d) return;
+    d.amount = null; d.t = now();
+    state.editing = null;
+    focusAfter = 'amtbtn-' + dayKey;
+    render(); persist();
+  }
+  function moveWeek(n) {
+    state.weekKey = keyOf(addDays(parseKey(state.weekKey), 7 * n));
+    state.editing = null;
+    render();
+  }
+  function setTab(t) {
+    if (t !== 'week' && t !== 'history' && t !== 'people') return;
+    state.tab = t; state.editing = null; state.confirm = null;
+    render();
+    window.scrollTo(0, 0);
+  }
+  function addDriver() {
+    var l = drivers(); if (l.length >= 4) return;
+    var used = {}; l.forEach(function (d) { used[d.slot] = true; });
+    var slot = 0; while (used[slot] && slot < 3) slot++;
+    var id = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    l.push({ id: id, name: '', price: '', slot: slot });
+    touchSettings();
+    focusAfter = 'name-' + id;
+    render(); persist();
+  }
+  function removeDriver(id) {
+    var i = driverIndex(id); if (i < 0 || drivers().length < 2) return;
+    var nm = (drivers()[i].name || '').trim();
+    var t = now();
+    Object.keys(state.weeks).forEach(function (k) {
+      var w = state.weeks[k];
+      Object.keys(w.days).forEach(function (dk) {
+        var d = w.days[dk];
+        if (d.m !== id) return;
+        if (typeof d.amount !== 'number') d.amount = defaultAmount(d);
+        if (nm) d.who = nm;
+        d.t = t;
+      });
+    });
+    drivers().splice(i, 1);
+    touchSettings();
+    state.confirm = null;
+    focusAfter = 'add-driver';
+    render(); persist();
+    toast('Водія видалено');
+  }
+  function queueSettingsSave() {
+    touchSettings();
+    saveLocal();
+    clearTimeout(settingsTimer);
+    settingsTimer = setTimeout(function () { settingsTimer = null; persist(); }, 700);
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-act]');
+    if (!t || t.tagName === 'INPUT' || t.disabled) return;
+    var act = t.dataset.act;
+    switch (act) {
+      case 'tab': setTab(t.dataset.tab); break;
+      case 'prev': moveWeek(-1); break;
+      case 'next': moveWeek(1); break;
+      case 'today': state.weekKey = keyOf(mondayOf(new Date())); state.editing = null; focusAfter = 'nav-next'; render(); break;
+      case 'open-week': if (KEY_RE.test(t.dataset.week)) { state.weekKey = t.dataset.week; setTab('week'); } break;
+      case 'pick': pick(t.dataset.day, t.dataset.m); break;
+      case 'round': toggleRound(t.dataset.day); break;
+      case 'edit': openEdit(t.dataset.day); break;
+      case 'cancel-edit': state.editing = null; focusAfter = 'amtbtn-' + t.dataset.day; render(); break;
+      case 'reset-amount': resetAmount(t.dataset.day); break;
+      case 'settle': settle(t.dataset.id); break;
+      case 'add-driver': addDriver(); break;
+      case 'ask-remove': state.confirm = t.dataset.id; focusAfter = 'rm-no-' + t.dataset.id; render(); break;
+      case 'cancel-remove': focusAfter = 'rm-' + state.confirm; state.confirm = null; render(); break;
+      case 'remove': removeDriver(t.dataset.id); break;
+      case 'go-sync':
+        setTab('people');
+        var card = document.getElementById('sync');
+        if (card) { card.scrollIntoView({ block: 'start' }); var tok = document.getElementById('gh-token'); if (tok) tok.focus({ preventScroll: true }); }
+        break;
+      case 'sync-now': pull(); break;
+      case 'disconnect': disconnect(); break;
+      case 'download': downloadCopy(); break;
+    }
+  });
+
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || !f.dataset) return;
+    if (f.dataset.form === 'amount') { e.preventDefault(); saveAmount(f.dataset.day, f.elements.amount ? f.elements.amount.value : ''); }
+    else if (f.dataset.form === 'github') { e.preventDefault(); connect(f.elements.repo.value, f.elements.token.value); }
+  });
+
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t || !t.dataset || !t.dataset.field) return;
+    var f = t.dataset.field;
+    if (f === 'busFare') {
+      state.settings.busFare = t.value.slice(0, 8);
+      var br = document.getElementById('bus-round');
+      if (br) br.textContent = fmt(num(t.value) * 2);
+    } else {
+      var i = driverIndex(t.dataset.id); if (i < 0) return;
+      var d = drivers()[i];
+      if (f === 'name') {
+        d.name = t.value.slice(0, 24);
+        var tt = document.getElementById('title-' + d.id); if (tt) tt.textContent = dname(d, i);
+        var av = document.getElementById('av-' + d.id); if (av) av.textContent = avatarText(d, i);
+      } else if (f === 'price') {
+        d.price = t.value.slice(0, 8);
+        var h = document.getElementById('half-' + d.id); if (h) h.textContent = halfText(d);
+      }
+    }
+    queueSettingsSave();
+  });
+
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t) return;
+    if (t.dataset && t.dataset.act === 'paid') { setPaid(t.dataset.day, t.checked); return; }
+    if (t.name === 'paymode') { state.settings.mode = t.value === 'instant' ? 'instant' : 'weekly'; touchSettings(); render(); persist(); return; }
+    if (t.id === 'weekend') { state.settings.weekend = t.checked; touchSettings(); render(); persist(); return; }
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (!gh) return;
+    if (document.visibilityState === 'hidden') { if (sync.timer || settingsTimer) { clearTimeout(settingsTimer); settingsTimer = null; push(); } }
+    else pull();
+  });
+  window.addEventListener('online', function () { if (gh) pull(); });
+
+  /* ---------- start ---------- */
+  loadLocal();
+  render();
+  if (gh) pull();
+})();
+</script>
+</body>
+</html>
