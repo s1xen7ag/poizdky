@@ -194,6 +194,16 @@ a { color: inherit; }
 .check { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 4px 0 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .check input { width: 20px; height: 20px; margin: 0; accent-color: var(--good); cursor: pointer; }
 .note { font-size: 13px; font-weight: 600; color: var(--muted); }
+.trip .check { margin-left: auto; }
+.legs { display: flex; flex-direction: column; gap: 10px; }
+.leg { display: flex; flex-direction: column; gap: 6px; }
+.leg-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.leg-label svg { width: 16px; height: 16px; }
+.opts.sm .opt { height: 52px; gap: 3px; border-radius: 12px; font-size: 11.5px; }
+.opts.sm .opt .av { width: 20px; height: 20px; font-size: 11px; }
+.edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.edit-field { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.edit-field label { font-size: 13px; font-weight: 700; color: var(--muted); }
 
 .edit { display: flex; flex-direction: column; gap: 6px; }
 .edit > label { font-size: 13px; font-weight: 700; color: var(--muted); }
@@ -335,6 +345,8 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
     trash: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
     plus: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2.4" ' + SVG + '><path d="M12 5v14M5 12h14"/></svg>',
     phone: '<svg width="20" height="20" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
+    back: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M20 12H5M10 7l-5 5 5 5"/></svg>',
+    noneSm: '<svg width="18" height="18" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>',
     github: '<svg width="20" height="20" viewBox="0 0 24 24" stroke-width="2" ' + SVG + '><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>'
   };
 
@@ -422,17 +434,39 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
       t: typeof o.t === 'number' && isFinite(o.t) ? o.t : 0
     };
   }
-  /* A day with m === null is a cleared day, kept so the clear syncs to other devices. */
+  /* A day has two legs: "to" (туди) and "back" (назад). Each leg is a driver id, 'bus', 'none', or null (not set).
+     A day with both legs null is a cleared day, kept so the clear syncs to other devices.
+     Older saves kept one choice per day ({m, round, amount, paid}); they are converted here. */
+  function normAmount(v) { return (typeof v === 'number' && isFinite(v) && v >= 0) ? Math.round(v * 100) / 100 : null; }
+  function normalizeLeg(o) {
+    if (!o || typeof o !== 'object' || typeof o.m !== 'string' || !o.m) return null;
+    return { m: o.m.slice(0, 40), amount: normAmount(o.amount), paid: o.paid === true, who: typeof o.who === 'string' ? o.who.slice(0, 40) : '' };
+  }
   function normalizeDay(o) {
     if (!o || typeof o !== 'object') return null;
+    var t = typeof o.t === 'number' && isFinite(o.t) ? o.t : 0;
+    if (o.legs && typeof o.legs === 'object') {
+      return { to: normalizeLeg(o.legs.to), back: normalizeLeg(o.legs.back), split: o.split === true, t: t };
+    }
     var m = (typeof o.m === 'string' && o.m) ? o.m.slice(0, 40) : null;
+    if (!m) return { to: null, back: null, split: false, t: t };
+    var amt = normAmount(o.amount), who = typeof o.who === 'string' ? o.who.slice(0, 40) : '', paid = o.paid === true;
+    if (o.round === false) return { to: { m: m, amount: amt, paid: paid, who: who }, back: null, split: true, t: t };
+    var half = amt == null ? null : Math.round(amt / 2 * 100) / 100;
+    return { to: { m: m, amount: half, paid: paid, who: who }, back: { m: m, amount: half, paid: paid, who: who }, split: false, t: t };
+  }
+  /* Saved form of a day. m / round / paid / who are also written for older versions of the app that may still be open somewhere. */
+  function serializeDay(d) {
+    var legs = [d.to, d.back].filter(Boolean);
+    var drv = legs.filter(function (l) { return l.m !== 'bus' && l.m !== 'none'; });
+    var main = drv[0] || legs[0] || null;
     return {
-      m: m,
-      round: o.round !== false,
-      amount: (typeof o.amount === 'number' && isFinite(o.amount) && o.amount >= 0) ? o.amount : null,
-      paid: o.paid === true,
-      who: typeof o.who === 'string' ? o.who.slice(0, 40) : '',
-      t: typeof o.t === 'number' && isFinite(o.t) ? o.t : 0
+      legs: { to: d.to || null, back: d.back || null }, split: !!d.split, t: d.t || 0,
+      m: main ? main.m : null,
+      round: !!(d.to && d.back && d.to.m === d.back.m),
+      amount: null,
+      paid: drv.length ? drv.every(function (l) { return l.paid; }) : false,
+      who: main ? main.who : ''
     };
   }
   function normalizeWeek(o, id) {
@@ -456,10 +490,10 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
     var weeks = {};
     Object.keys(data.weeks).sort().forEach(function (k) {
       var days = data.weeks[k].days, out = {};
-      Object.keys(days).sort().forEach(function (dk) { out[dk] = days[dk]; });
+      Object.keys(days).sort().forEach(function (dk) { out[dk] = serializeDay(days[dk]); });
       if (Object.keys(out).length) weeks[k] = { days: out };
     });
-    return { app: 'poizdky', v: 1, settings: data.settings, weeks: weeks };
+    return { app: 'poizdky', v: 2, settings: data.settings, weeks: weeks };
   }
   function mergeData(a, b) {
     var settings = (a.settings.t || 0) >= (b.settings.t || 0) ? a.settings : b.settings;
@@ -500,38 +534,41 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
   function slotCls(s) { return (s >= 0 && s <= 3) ? 'c' + s : 'cx'; }
   function nameForId(id, fallback) { var i = driverIndex(id); return i >= 0 ? dname(drivers()[i], i) : (fallback || 'Видалений водій'); }
   function halfText(d) { var p = num(d.price); return p ? 'В один бік — ' + fmt(p / 2) + ' (половина)' : 'Впиши ціну, щоб програма рахувала сама'; }
-  function live(d) { return d && d.m ? d : null; }
-
-  function defaultAmount(d) {
-    if (d.m === 'bus') { var f = num(state.settings.busFare); return d.round ? f * 2 : f; }
-    var dr = driverById(d.m);
-    if (!dr) return 0;
-    var p = num(dr.price);
-    return d.round ? p : p / 2;
+  function live(d) { return d && (d.to || d.back) ? d : null; }
+  function isDrv(m) { return !!m && m !== 'bus' && m !== 'none'; }
+  function legsOf(d) { return d ? [d.to, d.back].filter(Boolean) : []; }
+  /* One leg costs half of the driver's round-trip price, or one bus fare. */
+  function legDefault(l) {
+    if (!l) return 0;
+    if (l.m === 'bus') return num(state.settings.busFare);
+    var dr = driverById(l.m);
+    return dr ? num(dr.price) / 2 : 0;
   }
-  function effective(d) { return typeof d.amount === 'number' ? d.amount : defaultAmount(d); }
+  function legCost(l) { return !l ? 0 : (typeof l.amount === 'number' ? l.amount : legDefault(l)); }
 
   function weekStats(wk) {
     var per = new Map(), bus = 0, busTrips = 0, total = 0, unpaid = 0;
     var days = (wk && wk.days) || {};
     Object.keys(days).sort().forEach(function (k) {
-      var d = days[k];
-      if (!d || !d.m || d.m === 'none') return;
-      var c = effective(d);
-      if (d.m === 'bus') { bus += c; busTrips++; return; }
-      var p = per.get(d.m);
-      if (!p) { p = { total: 0, unpaid: 0, trips: 0, name: '' }; per.set(d.m, p); }
-      if (d.who) p.name = d.who;
-      p.total += c; p.trips++;
-      if (!d.paid) p.unpaid += c;
-      total += c;
-      if (!d.paid) unpaid += c;
+      var seen = {}, rodeBus = false;
+      legsOf(days[k]).forEach(function (l) {
+        if (l.m === 'none') return;
+        var c = legCost(l);
+        if (l.m === 'bus') { bus += c; rodeBus = true; return; }
+        var p = per.get(l.m);
+        if (!p) { p = { total: 0, unpaid: 0, trips: 0, name: '' }; per.set(l.m, p); }
+        if (l.who) p.name = l.who;
+        p.total += c; total += c;
+        if (!l.paid) { p.unpaid += c; unpaid += c; }
+        if (!seen[l.m]) { seen[l.m] = true; p.trips++; }
+      });
+      if (rodeBus) busTrips++;
     });
     return { per: per, bus: bus, busTrips: busTrips, total: total, unpaid: unpaid };
   }
   function hasTrips(wk) {
     var days = (wk && wk.days) || {};
-    return Object.keys(days).some(function (k) { var d = days[k]; return d && d.m && d.m !== 'none'; });
+    return Object.keys(days).some(function (k) { return legsOf(days[k]).some(function (l) { return l.m !== 'none'; }); });
   }
   function orderedIds(map) {
     var ids = [];
@@ -733,57 +770,91 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
   }
 
   /* ---------- views ---------- */
-  function optHtml(key, m, label, icon, cls, on) {
-    return '<button type="button" class="opt ' + cls + '" id="opt-' + key + '-' + m + '" data-act="pick" data-day="' + key + '" data-m="' + m + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+  function legName(l) {
+    if (!l) return 'не вказано';
+    if (l.m === 'bus') return 'маршрутка';
+    if (l.m === 'none') return 'не їду';
+    var i = driverIndex(l.m);
+    return i >= 0 ? dname(drivers()[i], i) : (l.who || 'видалений водій');
+  }
+
+  function optHtml(key, leg, m, label, icon, cls, on) {
+    return '<button type="button" class="opt ' + cls + '" id="opt-' + key + '-' + leg + '-' + m + '" data-act="pick" data-day="' + key + '" data-leg="' + leg + '" data-m="' + m + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
       icon + '<span class="lbl">' + esc(label) + '</span></button>';
   }
 
+  function chipSet(key, leg, current, small) {
+    var chips = drivers().map(function (x, k) {
+      return optHtml(key, leg, x.id, dname(x, k), '<span class="av" aria-hidden="true">' + esc(avatarText(x, k)) + '</span>', 'drv ' + slotCls(x.slot), current === x.id);
+    });
+    chips.push(optHtml(key, leg, 'bus', 'Маршрутка', small ? ICON.busSm : ICON.bus, 'bus', current === 'bus'));
+    chips.push(optHtml(key, leg, 'none', 'Не їду', small ? ICON.noneSm : ICON.none, 'none', current === 'none'));
+    return { html: chips.join(''), cols: chips.length <= 4 ? chips.length : 3 };
+  }
+
   function dayHtml(i, mon, wk, weekly, todayKey) {
-    var date = addDays(mon, i), key = keyOf(date), d = live(wk.days[key]);
+    var date = addDays(mon, i), key = keyOf(date);
+    var raw = wk.days[key] || null, d = live(raw);
     var name = DAY_NAMES[i];
     var isToday = key === todayKey;
-    var isBus = !!d && d.m === 'bus', isNone = !!d && d.m === 'none', isDrv = !!d && !isBus && !isNone;
-    var c = d ? effective(d) : 0;
-    var dr = isDrv ? driverById(d.m) : null;
+    var to = d ? d.to : null, back = d ? d.back : null;
+    var same = !!(to && back && to.m === back.m);
+    var splitView = !!(raw && raw.split) || (!!d && !same);
+    var legs = legsOf(d);
+    var drvLegs = legs.filter(function (l) { return isDrv(l.m); });
+    var busLegs = legs.filter(function (l) { return l.m === 'bus'; });
+    var owed = drvLegs.reduce(function (a, l) { return a + legCost(l); }, 0);
+    var busAmt = busLegs.reduce(function (a, l) { return a + legCost(l); }, 0);
+    var allPaid = drvLegs.length > 0 && drvLegs.every(function (l) { return l.paid; });
 
     var status = date.getDate() + ' ' + MONTHS_S[date.getMonth()];
     if (!d) status += ' · ще не вказано';
-    else if (isDrv && !dr) status += ' · ' + (d.who || 'видалений водій');
+    else if (!same) status += ' · туди: ' + legName(to) + ', назад: ' + legName(back);
+    else if (isDrv(to.m) && !driverById(to.m)) status += ' · ' + legName(to);
 
-    var amtBtn = '<button type="button" class="amt-btn" id="amtbtn-' + key + '" data-act="edit" data-day="' + key + '" aria-label="Сума ' + fmt(c) + '. Змінити"><span class="num">' + fmt(c) + '</span>' + ICON.pencil + '</button>';
+    var shown = drvLegs.length ? owed : busAmt;
+    var amtBtn = '<button type="button" class="amt-btn" id="amtbtn-' + key + '" data-act="edit" data-day="' + key + '" aria-label="Сума ' + fmt(shown) + '. Змінити"><span class="num">' + fmt(shown) + '</span>' + ICON.pencil + '</button>';
     var sum;
-    if (isDrv) sum = amtBtn + '<span class="cap ' + (d.paid ? 'good' : 'owe') + '">' + (d.paid ? 'віддано' : 'до віддачі') + '</span>';
-    else if (isBus) sum = amtBtn + '<span class="cap">маршрутка</span>';
-    else if (isNone) sum = '<span class="amt-static num">0 ₴</span><span class="cap">без поїздки</span>';
+    if (drvLegs.length) {
+      sum = amtBtn + '<span class="cap ' + (allPaid ? 'good' : 'owe') + '">' + (allPaid ? 'віддано' : 'до віддачі') + '</span>' +
+        (busLegs.length ? '<span class="cap">+ ' + fmt(busAmt) + ' маршрутка</span>' : '');
+    } else if (busLegs.length) sum = amtBtn + '<span class="cap">маршрутка</span>';
+    else if (d) sum = '<span class="amt-static num">0 ₴</span><span class="cap">без поїздки</span>';
     else sum = '<span class="amt-static num" aria-hidden="true">—</span>';
 
-    var opts = drivers().map(function (x, k) {
-      return optHtml(key, x.id, dname(x, k), '<span class="av" aria-hidden="true">' + esc(avatarText(x, k)) + '</span>', 'drv ' + slotCls(x.slot), !!d && d.m === x.id);
-    });
-    opts.push(optHtml(key, 'bus', 'Маршрутка', ICON.bus, 'bus', isBus));
-    opts.push(optHtml(key, 'none', 'Не їду', ICON.none, 'none', isNone));
-    var cols = opts.length <= 4 ? opts.length : 3;
-
-    var trip = '';
-    if (isDrv || isBus) {
-      var rl = d.round ? 'Туди й назад' : 'Тільки в один бік';
-      trip = '<div class="trip">' +
-        '<button type="button" class="pill" id="round-' + key + '" data-act="round" data-day="' + key + '" aria-label="' + rl + '. Змінити">' + (d.round ? ICON.round : ICON.oneway) + '<span>' + rl + '</span></button>' +
-        (isDrv && !weekly ? '<label class="check" for="paid-' + key + '"><input type="checkbox" id="paid-' + key + '" data-act="paid" data-day="' + key + '"' + (d.paid ? ' checked' : '') + '><span>Віддано</span></label>' : '') +
-        (isDrv && weekly && !d.paid ? '<span class="note">у підсумок тижня</span>' : '') +
+    var choose;
+    if (splitView) {
+      var a = chipSet(key, 'to', to ? to.m : null, true), b = chipSet(key, 'back', back ? back.m : null, true);
+      choose = '<div class="legs">' +
+        '<div class="leg"><span class="leg-label">' + ICON.oneway + 'Туди</span><div class="opts sm" role="group" aria-label="Туди" style="--cols:' + a.cols + '">' + a.html + '</div></div>' +
+        '<div class="leg"><span class="leg-label">' + ICON.back + 'Назад</span><div class="opts sm" role="group" aria-label="Назад" style="--cols:' + b.cols + '">' + b.html + '</div></div>' +
         '</div>';
+    } else {
+      var c = chipSet(key, 'both', same ? to.m : null, false);
+      choose = '<div class="opts" role="group" aria-label="Як їду в ' + DAY_ACC[i] + ', туди й назад" style="--cols:' + c.cols + '">' + c.html + '</div>';
     }
 
+    var toggle = splitView
+      ? '<button type="button" class="pill" id="unsplit-' + key + '" data-act="unsplit" data-day="' + key + '" aria-expanded="true">' + ICON.round + '<span>Однаково туди й назад</span></button>'
+      : '<button type="button" class="pill" id="split-' + key + '" data-act="split" data-day="' + key + '" aria-expanded="false">' + ICON.round + '<span>Туди й назад окремо</span></button>';
+    var trip = '<div class="trip">' + toggle +
+      (drvLegs.length && !weekly ? '<label class="check" for="paid-' + key + '"><input type="checkbox" id="paid-' + key + '" data-act="paid" data-day="' + key + '"' + (allPaid ? ' checked' : '') + '><span>Віддано</span></label>' : '') +
+      (drvLegs.length && weekly && !allPaid ? '<span class="note">у підсумок тижня</span>' : '') +
+      '</div>';
+
     var edit = '';
-    if (state.editing === key && (isDrv || isBus)) {
+    if (state.editing === key && (drvLegs.length || busLegs.length)) {
+      var fields = [['to', to], ['back', back]].filter(function (p) { return p[1] && p[1].m !== 'none'; }).map(function (p) {
+        var dir = p[0], l = p[1];
+        return '<div class="edit-field"><label for="amt-' + key + '-' + dir + '">' + (dir === 'to' ? 'Туди' : 'Назад') + ' · ' + esc(legName(l)) + '</label>' +
+          '<span class="money"><input type="text" inputmode="decimal" id="amt-' + key + '-' + dir + '" name="' + dir + '" value="' + plain(legCost(l)) + '" maxlength="8" autocomplete="off"><span class="cur" aria-hidden="true">₴</span></span></div>';
+      }).join('');
+      var custom = legs.some(function (l) { return typeof l.amount === 'number' && !(isDrv(l.m) && l.paid); });
       edit = '<form class="edit" id="form-' + key + '" data-form="amount" data-day="' + key + '">' +
-        '<label for="amt-' + key + '">Сума за ' + DAY_ACC[i] + '</label>' +
-        '<div class="edit-row">' +
-          '<span class="money"><input type="text" inputmode="decimal" id="amt-' + key + '" name="amount" value="' + plain(c) + '" maxlength="8" autocomplete="off"><span class="cur" aria-hidden="true">₴</span></span>' +
-          '<button type="submit" class="btn-ink" id="save-' + key + '">Зберегти</button>' +
-          '<button type="button" class="btn-ghost" id="cancel-' + key + '" data-act="cancel-edit" data-day="' + key + '">Скасувати</button>' +
-        '</div>' +
-        (typeof d.amount === 'number' && !d.paid ? '<button type="button" class="link-btn" id="reset-' + key + '" data-act="reset-amount" data-day="' + key + '">Повернути звичайну ціну</button>' : '') +
+        '<div class="edit-grid">' + fields + '</div>' +
+        '<div class="edit-row"><button type="submit" class="btn-ink" id="save-' + key + '">Зберегти</button>' +
+        '<button type="button" class="btn-ghost" id="cancel-' + key + '" data-act="cancel-edit" data-day="' + key + '">Скасувати</button></div>' +
+        (custom ? '<button type="button" class="link-btn" id="reset-' + key + '" data-act="reset-amount" data-day="' + key + '">Повернути звичайну ціну</button>' : '') +
         '</form>';
     }
 
@@ -792,8 +863,7 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
         '<div class="day-info"><div class="day-title"><h3>' + name + '</h3>' + (isToday ? '<span class="today-badge">Сьогодні</span>' : '') + '</div><span class="day-date">' + esc(status) + '</span></div>' +
         '<div class="day-sum">' + sum + '</div>' +
       '</div>' +
-      '<div class="opts" role="group" aria-label="Як їду в ' + DAY_ACC[i] + '" style="--cols:' + cols + '">' + opts.join('') + '</div>' +
-      trip + edit +
+      choose + trip + edit +
       '</section>';
   }
 
@@ -1091,55 +1161,86 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
   function curDay(dayKey) { var w = state.weeks[state.weekKey]; return w ? live(w.days[dayKey]) : null; }
   function touchSettings() { state.settings.t = now(); }
 
-  function pick(dayKey, m) {
-    if (!KEY_RE.test(dayKey) || !(m === 'bus' || m === 'none' || driverById(m))) return;
-    var w = touchWeek(state.weekKey), cur = live(w.days[dayKey]);
-    if (cur && cur.m === m) {
-      w.days[dayKey] = { m: null, round: true, amount: null, paid: false, who: '', t: now() };
-    } else {
-      var dr = driverById(m);
-      w.days[dayKey] = { m: m, round: cur ? cur.round !== false : true, amount: null, paid: false, who: dr ? (dr.name || '').trim() : '', t: now() };
-    }
-    if (state.editing === dayKey) state.editing = null;
-    render();
-    persist();
+  function newLeg(m) { var dr = driverById(m); return { m: m, amount: null, paid: false, who: dr ? (dr.name || '').trim() : '' }; }
+  function rawDay(dayKey) {
+    var w = touchWeek(state.weekKey);
+    return w.days[dayKey] || (w.days[dayKey] = { to: null, back: null, split: false, t: 0 });
   }
-  function toggleRound(dayKey) {
-    var d = curDay(dayKey); if (!d) return;
-    d.round = !d.round;
-    d.amount = d.paid ? defaultAmount(d) : null;
+
+  /* leg: 'both' sets "туди" and "назад" at once; 'to' / 'back' sets one direction. Tapping the chosen option again clears it. */
+  function pick(dayKey, leg, m) {
+    if (!KEY_RE.test(dayKey) || !(m === 'bus' || m === 'none' || driverById(m))) return;
+    if (leg !== 'both' && leg !== 'to' && leg !== 'back') return;
+    var d = rawDay(dayKey);
+    if (leg === 'both') {
+      var same = d.to && d.back && d.to.m === m && d.back.m === m;
+      d.to = same ? null : newLeg(m);
+      d.back = same ? null : newLeg(m);
+    } else {
+      d[leg] = (d[leg] && d[leg].m === m) ? null : newLeg(m);
+      d.split = true;
+    }
     d.t = now();
+    if (state.editing === dayKey) state.editing = null;
+    render(); persist();
+  }
+  function setSplit(dayKey, on) {
+    if (!KEY_RE.test(dayKey)) return;
+    var d = rawDay(dayKey);
+    if (on) d.split = true;
+    else {
+      var base = d.to || d.back;
+      d.to = base ? JSON.parse(JSON.stringify(base)) : null;
+      d.back = base ? JSON.parse(JSON.stringify(base)) : null;
+      d.split = false;
+    }
+    d.t = now();
+    if (state.editing === dayKey) state.editing = null;
+    focusAfter = (on ? 'unsplit-' : 'split-') + dayKey;
     render(); persist();
   }
   function setPaid(dayKey, on) {
     var d = curDay(dayKey); if (!d) return;
-    if (on && typeof d.amount !== 'number') d.amount = defaultAmount(d);
-    d.paid = on; d.t = now();
+    legsOf(d).forEach(function (l) {
+      if (!isDrv(l.m)) return;
+      if (on && typeof l.amount !== 'number') l.amount = legDefault(l);
+      l.paid = on;
+    });
+    d.t = now();
     render(); persist();
   }
   function settle(id) {
     var w = state.weeks[state.weekKey]; if (!w) return;
-    var list = Object.keys(w.days).map(function (k) { return w.days[k]; }).filter(function (d) { return d.m === id; });
-    if (!list.length) return;
-    var anyUnpaid = list.some(function (d) { return !d.paid; });
-    var t = now();
-    list.forEach(function (d) {
-      if (anyUnpaid && typeof d.amount !== 'number') d.amount = defaultAmount(d);
-      d.paid = anyUnpaid; d.t = t;
+    var list = [], touched = [];
+    Object.keys(w.days).forEach(function (k) {
+      var ls = legsOf(w.days[k]).filter(function (l) { return l.m === id; });
+      if (ls.length) { list = list.concat(ls); touched.push(w.days[k]); }
     });
+    if (!list.length) return;
+    var anyUnpaid = list.some(function (l) { return !l.paid; });
+    var t = now();
+    list.forEach(function (l) {
+      if (anyUnpaid && typeof l.amount !== 'number') l.amount = legDefault(l);
+      l.paid = anyUnpaid;
+    });
+    touched.forEach(function (d) { d.t = t; });
     render(); persist();
     toast(anyUnpaid ? 'Позначено: віддано' : 'Позначку знято');
   }
   function openEdit(dayKey) {
     state.editing = dayKey;
     render();
-    var el = document.getElementById('amt-' + dayKey);
+    var el = document.querySelector('#form-' + dayKey + ' input');
     if (el) { el.focus(); el.select(); }
   }
-  function saveAmount(dayKey, raw) {
+  function saveAmount(dayKey, form) {
     var d = curDay(dayKey); if (!d) return;
-    var t = String(raw || '').trim();
-    d.amount = t === '' ? (d.paid ? defaultAmount(d) : null) : num(t);
+    ['to', 'back'].forEach(function (dir) {
+      var l = d[dir], input = form.elements[dir];
+      if (!l || !input) return;
+      var v = String(input.value || '').trim();
+      l.amount = v === '' ? ((isDrv(l.m) && l.paid) ? legDefault(l) : null) : num(v);
+    });
     d.t = now();
     state.editing = null;
     focusAfter = 'amtbtn-' + dayKey;
@@ -1147,7 +1248,8 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
   }
   function resetAmount(dayKey) {
     var d = curDay(dayKey); if (!d) return;
-    d.amount = null; d.t = now();
+    legsOf(d).forEach(function (l) { if (!(isDrv(l.m) && l.paid)) l.amount = null; });
+    d.t = now();
     state.editing = null;
     focusAfter = 'amtbtn-' + dayKey;
     render(); persist();
@@ -1180,11 +1282,14 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
     Object.keys(state.weeks).forEach(function (k) {
       var w = state.weeks[k];
       Object.keys(w.days).forEach(function (dk) {
-        var d = w.days[dk];
-        if (d.m !== id) return;
-        if (typeof d.amount !== 'number') d.amount = defaultAmount(d);
-        if (nm) d.who = nm;
-        d.t = t;
+        var d = w.days[dk], hit = false;
+        legsOf(d).forEach(function (l) {
+          if (l.m !== id) return;
+          if (typeof l.amount !== 'number') l.amount = legDefault(l);
+          if (nm) l.who = nm;
+          hit = true;
+        });
+        if (hit) d.t = t;
       });
     });
     drivers().splice(i, 1);
@@ -1212,8 +1317,9 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
       case 'next': moveWeek(1); break;
       case 'today': state.weekKey = keyOf(mondayOf(new Date())); state.editing = null; focusAfter = 'nav-next'; render(); break;
       case 'open-week': if (KEY_RE.test(t.dataset.week)) { state.weekKey = t.dataset.week; setTab('week'); } break;
-      case 'pick': pick(t.dataset.day, t.dataset.m); break;
-      case 'round': toggleRound(t.dataset.day); break;
+      case 'pick': pick(t.dataset.day, t.dataset.leg || 'both', t.dataset.m); break;
+      case 'split': setSplit(t.dataset.day, true); break;
+      case 'unsplit': setSplit(t.dataset.day, false); break;
       case 'edit': openEdit(t.dataset.day); break;
       case 'cancel-edit': state.editing = null; focusAfter = 'amtbtn-' + t.dataset.day; render(); break;
       case 'reset-amount': resetAmount(t.dataset.day); break;
@@ -1243,7 +1349,7 @@ details.how summary { min-height: 44px; display: flex; align-items: center; font
   document.addEventListener('submit', function (e) {
     var f = e.target;
     if (!f || !f.dataset) return;
-    if (f.dataset.form === 'amount') { e.preventDefault(); saveAmount(f.dataset.day, f.elements.amount ? f.elements.amount.value : ''); }
+    if (f.dataset.form === 'amount') { e.preventDefault(); saveAmount(f.dataset.day, f); }
     else if (f.dataset.form === 'github') { e.preventDefault(); connect(f.elements.repo.value, f.elements.token.value); }
   });
 
