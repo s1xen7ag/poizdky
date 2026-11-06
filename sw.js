@@ -1,8 +1,8 @@
 /* Lets the app open without internet. The app's own files are fetched from the network first
    (so updates arrive right away) and taken from the cache when offline. Requests to the GitHub API
    are never cached: the data always goes straight to GitHub. */
-var CACHE = 'poizdky-v1';
-var ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+var CACHE = 'poizdky-v2';
+var ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-v2-192.png', './icon-v2-512.png', './apple-touch-icon-v2.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS); }).then(function () { return self.skipWaiting(); }));
